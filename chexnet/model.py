@@ -8,7 +8,6 @@ import argparse
 import os
 
 import numpy as np
-from sklearn.metrics import roc_auc_score
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -16,7 +15,8 @@ import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
-from read_data import ChestXrayDataSet
+from cxrlib.read_data import ChestXrayDataSet
+from cxrlib.results import compute_AUCs
 
 
 CKPT_PATH = 'model.pth.tar'
@@ -138,27 +138,6 @@ def run_model_testing(model, normalize):
     print('The average AUROC is {AUROC_avg:.3f}'.format(AUROC_avg=AUROC_avg))
     for i in range(N_CLASSES):
         print('The AUROC of {} is {}'.format(CLASS_NAMES[i], AUROCs[i]))
-
-
-def compute_AUCs(gt, pred):
-    """Computes Area Under the Curve (AUC) from prediction scores.
-
-    Args:
-        gt: Pytorch tensor on GPU, shape = [n_samples, n_classes]
-          true binary labels.
-        pred: Pytorch tensor on GPU, shape = [n_samples, n_classes]
-          can either be probability estimates of the positive class,
-          confidence values, or binary decisions.
-
-    Returns:
-        List of AUROCs of all classes.
-    """
-    AUROCs = []
-    gt_np = gt.cpu().numpy()
-    pred_np = pred.cpu().numpy()
-    for i in range(N_CLASSES):
-        AUROCs.append(roc_auc_score(gt_np[:, i], pred_np[:, i]))
-    return AUROCs
 
 
 class DenseNet121(nn.Module):
