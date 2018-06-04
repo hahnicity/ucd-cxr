@@ -82,7 +82,8 @@ def run_model_training(model, normalize, epochs):
     criterion = torch.nn.BCELoss()
     scheduler = ReduceLROnPlateau(optimizer, factor = 0.1, patience = 5, mode = 'min')
     for i in range(epochs):
-        for i, (inp, target) in enumerate(test_loader):
+        scheduler.step()
+        for i, (inp, target) in enumerate(train_loader):
             target = target.cuda()
             bs, n_crops, c, h, w = inp.size()
             input_var = torch.autograd.Variable(inp.view(-1, c, h, w).cuda(), volatile=True)
