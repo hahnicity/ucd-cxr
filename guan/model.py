@@ -13,20 +13,9 @@ import torchvision
 from torchvision import transforms
 
 from cxrlib import constants
+from cxrlib.models import GuanResNet50
 from cxrlib.read_data import ChestXrayDataSet
 from cxrlib.results import compute_AUCs, Meter
-
-
-class ResNet50(torch.nn.Module):
-    def __init__(self):
-        super(ResNet50, self).__init__()
-        self.model = torchvision.models.resnet50(pretrained=True)
-        self.model.fc = torch.nn.Linear(self.model.fc.in_features, 14)
-        self.sigmoid = torch.nn.Sigmoid()
-
-    def forward(self, x):
-        x = self.model(x)
-        return self.sigmoid(x)
 
 
 def train(model, transformations, args):
@@ -122,7 +111,7 @@ def main():
 
     if args.print_progress:
         print("Model start time: {}".format(datetime.now().strftime("%Y-%m-%d_%H%M")))
-    model = ResNet50().cuda()
+    model = GuanResNet50().cuda()
     model = torch.nn.DataParallel(model).cuda()
     normalize = transforms.Normalize([0.485, 0.456, 0.406],
                                      [0.229, 0.224, 0.225])

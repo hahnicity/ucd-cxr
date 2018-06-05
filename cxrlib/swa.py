@@ -23,20 +23,21 @@ class SWA(object):
         if self.epoch_num >= self.epoch_start:
             self.update_weights()
             self.n_models += 1
-        self.epoch_num += 1
         if self.epoch_num == self.total_epochs:
             self.bn_update()
+        self.epoch_num += 1
 
     def update_weights(self):
-        for non_swa_param, swa_param in zip(self.non_swa_model.parameters(), self.swa_model.parameters()):
-            # XXX double check to make sure that this updates params properly
-            #
-            # nope it's not updating correctly. need to figure out how to update
-            # weights
-            swa_param = ((swa_param * self.n_models) + non_swa_param) / (self.n_models + 1)
-            # I think one way that we can do this is to iterate over model.state_dict()
-            # and look only for the weight and bias keyword.
+        swa_state_dict = self.swa_model.state_dict()
+        non_swa_state_dict = self.non_swa_model.state_dict()
+        for key in self.non_swa_model.state_dict().keys():
+            if "weight" in key or "bias" in key:
+                swa_param = swa_state_dict[key]
+                non_swa_param = non_swa_state_dict[key]
+                swa_param = ((swa_param * self.n_models) + non_swa_param) / (self.n_models + 1)
 
+                swa_state_dict[key] = swa_param
+        self.swa_model.load_state_dict(swa_state_dict)
 
     def _check_bn(self, module, flag):
         if issubclass(module.__class__, torch.nn.modules.batchnorm._BatchNorm):
