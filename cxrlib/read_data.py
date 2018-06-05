@@ -4,6 +4,7 @@
 Read images and corresponding labels.
 """
 
+import numpy as np
 import torch
 from torch.utils.data import Dataset
 from PIL import Image
@@ -53,3 +54,23 @@ class ChestXrayDataSet(Dataset):
     def __len__(self):
         return len(self.image_names)
 
+
+class RandomDataset(Dataset):
+    def __init__(self, transform=None, var_max=5, n_items=20):
+        """
+        Generates random data for example purposes. Target is a single variable
+        """
+        self.data = [
+            (torch.rand(3, 224, 224), torch.FloatTensor([np.random.randint(var_max+1)]))
+            for _ in range(n_items)
+        ]
+        self.transform = transform
+
+    def __getitem__(self, index):
+        image, label = self.data[index]
+        if self.transform is not None:
+            image = self.transform(image)
+        return image, label
+
+    def __len__(self):
+        return len(self.data)

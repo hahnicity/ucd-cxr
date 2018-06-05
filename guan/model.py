@@ -40,7 +40,7 @@ def train(model, transformations, args):
         shuffle=False, num_workers=multiprocessing.cpu_count(), pin_memory=True
     )
     model.train()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0001)
     criterion = torch.nn.BCELoss()
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_decay_epochs)
     train_loss = Meter('loss')
@@ -67,6 +67,7 @@ def train(model, transformations, args):
                 ), end="")
         if args.print_progress:
             print("")
+        print("end epoch {}".format(ep))
     return model, train_loss
 
 
@@ -133,7 +134,7 @@ def main():
         normalize,
     ])
     model, train_loss = train(model, training_transformations, args)
-    model.save_state_dict('guan_global_{}.pt'.format(datetime.now().strftime("%Y_%m_%d_%H%M")))
+    torch.save(model.module, 'guan_global_{}.pt'.format(datetime.now().strftime("%Y_%m_%d_%H%M")))
     if args.print_progress:
         print("Model end train time: {}".format(datetime.now().strftime("%Y-%m-%d_%H%M")))
 
