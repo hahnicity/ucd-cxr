@@ -17,11 +17,20 @@ from torchvision import transforms
 from cxrlib import constants
 from cxrlib.models import GuanResNet50
 from cxrlib.read_data import ChestXrayDataSet
-from cxrlib.results import compute_AUCs, Meter
+from cxrlib.results import compute_AUCs, Meter, SavedObjects
 from cxrlib.swa import SWA
 
 
-def train(model, transformations, args):
+def train(model, saved_objects, args):
+    normalize = transforms.Normalize([0.485, 0.456, 0.406],
+                                     [0.229, 0.224, 0.225])
+    transformations = transforms.Compose([
+        transforms.Resize(256),
+        transforms.RandomResizedCrop(224),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        normalize,
+    ])
     train_dataset = ChestXrayDataSet(
         data_dir=os.path.join(args.data_path, "images"),
         image_list_file=os.path.join(args.data_path, "labels", "train_val_list.processed"),
@@ -36,43 +45,69 @@ def train(model, transformations, args):
     if args.swa_start:
         swa_model = deepcopy(model)
         swa = SWA(model, swa_model, args.swa_start, train_loader, args.epochs, device='cuda')
-    else:
-        swa_model = None
+        saved_objects.register(swa_model, "swa_weights", True)
 
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0001)
     criterion = torch.nn.BCELoss()
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_decay_epochs)
-    train_loss = Meter('loss')
+    train_batch_loss = Meter('train_batch_loss')
+    train_epoch_loss = Meter('train_epoch_loss')
+    saved_objects.register(train_batch_loss, "train_batch_loss", False)
+    saved_objects.register(train_epoch_loss, 'train_epoch_loss', False)
+    if args.test_on_train_ep:
+        test_auc = Meter('test_auc')
+        saved_objects.register(test_auc, "test_auc", False)
+    if args.test_on_train_ep and args.swa_start:
+        swa_test_auc = Meter('swa_test_auc')
+        saved_objects.register(swa_test_auc, 'swa_test_auc', False)
 
     for ep in range(args.epochs):
         scheduler.step()
         for i, (inp, target) in enumerate(train_loader):
             start_batch = time()
-            target = target.cuda()
+            target = target.cuda(async=True)
+            inp = inp.cuda(async=True)
             bs, c, h, w = inp.size()
             target = torch.autograd.Variable(target)
-            input_var = torch.autograd.Variable(inp.view(-1, c, h, w).cuda())
+            input_var = torch.autograd.Variable(inp.view(-1, c, h, w))
             output = model(input_var)
 
             optimizer.zero_grad()
             loss = criterion(output, target)
             loss.backward()
             optimizer.step()
-            batch_time = time() - start_batch
-            train_loss.update(loss)
+            train_batch_loss.update(loss)
             if args.print_progress:
+                batch_time = time() - start_batch
                 print('Epoch: {}/{}, Batch: {}/{}, Batch time: {}, Loss: {}\r'.format(
-                    ep+1, args.epochs, i, len(train_loader), batch_time, str(train_loss)
+                    ep+1, args.epochs, i, len(train_loader), batch_time, str(train_batch_loss)
                 ), end="")
+
+        train_epoch_loss.update(train_batch_loss.value())
         if args.print_progress:
             print("")
         if args.swa_start:
             swa.step()
+        if args.test_on_train_ep:
+            auc = np.array(test(model, args)).mean()
+            test_auc.update(auc)
+        if args.test_on_train_ep and args.swa_start and swa.is_swa_training():
+            swa.bn_update()
+            auc = np.array(test(swa_model, args)).mean()
+            swa_test_auc.update(auc)
         print("end epoch {}".format(ep))
-    return model, train_loss, swa_model
+    return model
 
 
-def test(model, transformations, args):
+def test(model, args):
+    normalize = transforms.Normalize([0.485, 0.456, 0.406],
+                                     [0.229, 0.224, 0.225])
+    transformations = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        normalize,
+    ])
     test_dataset = ChestXrayDataSet(
         data_dir=os.path.join(args.data_path, "images"),
         image_list_file=os.path.join(args.data_path, "labels", "test_list.processed"),
@@ -101,13 +136,17 @@ def test(model, transformations, args):
         # The .data method converts from Variable to Tensor. And you can only
         # concatenate a tensor with a tensor, not variable with a tensor.
         pred = torch.cat((pred, output.data), 0)
-        print('Batch: {}/{}\r'.format(i, len(test_loader)), end="")
+        if args.print_progress:
+            print('Batch: {}/{}\r'.format(i, len(test_loader)), end="")
 
     AUROCs = compute_AUCs(gt, pred)
     AUROC_avg = np.array(AUROCs).mean()
-    print('The average AUROC is {AUROC_avg:.3f}'.format(AUROC_avg=AUROC_avg))
-    for i in range(len(constants.CLASS_NAMES)):
-        print('The AUROC of {} is {}'.format(constants.CLASS_NAMES[i], AUROCs[i]))
+    if args.print_results:
+        print('The average AUROC is {AUROC_avg:.3f}'.format(AUROC_avg=AUROC_avg))
+        for i in range(len(constants.CLASS_NAMES)):
+            print('The AUROC of {} is {}'.format(constants.CLASS_NAMES[i], AUROCs[i]))
+
+    return AUROCs
 
 
 def main():
@@ -119,45 +158,27 @@ def main():
     parser.add_argument('--lr-decay-epochs', type=int, default=20, help='number of epochs before we decay the learning rate')
     parser.add_argument('--print-progress', action='store_true', help='flag to use if you want to track the models training progress')
     parser.add_argument('--swa-start', type=int, help='Run with Stochastic Weight Averaging and start SWA at a particular epoch')
+    parser.add_argument('--test-on-train-ep', action='store_true', help='Test on a training epoch')
+    parser.add_argument('--print-results', action='store_true', help='print results at the end of a test execution')
     args = parser.parse_args()
 
-    if args.print_progress:
-        print("Model start time: {}".format(datetime.now().strftime("%Y-%m-%d_%H%M")))
+    print("Model start time: {}".format(datetime.now().strftime("%Y-%m-%d_%H%M")))
+    saved_objs = SavedObjects(os.path.join(os.path.abspath(os.path.dirname(__file__)), "results"))
     model = GuanResNet50().cuda()
     model = torch.nn.DataParallel(model).cuda()
-    normalize = transforms.Normalize([0.485, 0.456, 0.406],
-                                     [0.229, 0.224, 0.225])
+    saved_objs.register(model, "global_weights", True)
+
     if not args.load_weights:
-        training_transformations = transforms.Compose([
-            transforms.Resize(256),
-            transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize,
-        ])
-        model, train_loss, swa_model = train(model, training_transformations, args)
-        filename_extras = "_swa_{}".format(args.swa_start) if args.swa_start else ""
-        prefix = '{}{}.pt'.format(datetime.now().strftime("%Y_%m_%d_%H%M"), filename_extras)
-        weights_filepath = os.path.join(os.path.abspath(os.path.dirname(__file__)), "results", "global_weights_{}".format(prefix))
-        train_loss_filepath = os.path.join(os.path.abspath(os.path.dirname(__file__)), "results", "train_loss_{}".format(prefix))
-        torch.save(model.module.state_dict(), weights_filepath)
-        torch.save(train_loss, train_loss_filepath)
-        if args.swa_start:
-            swa_weights_filepath = os.path.join(os.path.abspath(os.path.dirname(__file__)), "results", "swa_weights_{}".format(prefix))
-            torch.save(swa_model.module.state_dict(), swa_weights_filepath)
-        if args.print_progress:
-            print("Model end train time: {}".format(datetime.now().strftime("%Y-%m-%d_%H%M")))
+        model = train(model, saved_objs, args)
+        suffix = datetime.now().strftime("%Y_%m_%d_%H%M")
+        saved_objs.save_all(suffix)
+        print("Model end train time: {}".format(datetime.now().strftime("%Y-%m-%d_%H%M")))
     else:
         model_weights = torch.load(args.load_weights)
         model.module.load_state_dict(model_weights)
 
-    validation_transformations = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        normalize,
-    ])
-    test(model, validation_transformations, args)
+    if not args.test_on_train_ep:
+        test(model, args)
 
 
 if __name__ == "__main__":

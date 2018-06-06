@@ -19,6 +19,12 @@ class SWA(object):
         self.epoch_num = 1
         self.n_models = 0
 
+    def is_swa_training(self):
+        if self.epoch_num >= self.epoch_start:
+            return True
+        else:
+            return False
+
     def step(self):
         if self.epoch_num >= self.epoch_start:
             self.update_weights()
