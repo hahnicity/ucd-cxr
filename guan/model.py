@@ -3,6 +3,7 @@ Reproduce as much of Guan's work as we care to. For now the global branch is goo
 enough.
 """
 from argparse import ArgumentParser
+from copy import deepcopy
 from datetime import datetime
 import multiprocessing
 import os
@@ -17,6 +18,7 @@ from cxrlib import constants
 from cxrlib.models import GuanResNet50
 from cxrlib.read_data import ChestXrayDataSet
 from cxrlib.results import compute_AUCs, Meter
+from cxrlib.swa import SWA
 
 
 def train(model, transformations, args):
@@ -30,6 +32,13 @@ def train(model, transformations, args):
         shuffle=False, num_workers=multiprocessing.cpu_count(), pin_memory=True
     )
     model.train()
+
+    if args.swa_start:
+        swa_model = deepcopy(model)
+        swa = SWA(model, swa_model, args.swa_start, train_loader, args.epochs, device='cuda')
+    else:
+        swa_model = None
+
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0001)
     criterion = torch.nn.BCELoss()
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_decay_epochs)
@@ -57,8 +66,10 @@ def train(model, transformations, args):
                 ), end="")
         if args.print_progress:
             print("")
+        if args.swa_start:
+            swa.step()
         print("end epoch {}".format(ep))
-    return model, train_loss
+    return model, train_loss, swa_model
 
 
 def test(model, transformations, args):
@@ -107,6 +118,7 @@ def main():
     parser.add_argument('--batch-size', type=int, help='batch size of the global branch', default=128)
     parser.add_argument('--lr-decay-epochs', type=int, default=20, help='number of epochs before we decay the learning rate')
     parser.add_argument('--print-progress', action='store_true', help='flag to use if you want to track the models training progress')
+    parser.add_argument('--swa-start', type=int, help='Run with Stochastic Weight Averaging and start SWA at a particular epoch')
     args = parser.parse_args()
 
     if args.print_progress:
@@ -123,8 +135,16 @@ def main():
             transforms.ToTensor(),
             normalize,
         ])
-        model, train_loss = train(model, training_transformations, args)
-        torch.save(model.module.state_dict(), 'guan_global_{}.pt'.format(datetime.now().strftime("%Y_%m_%d_%H%M")))
+        model, train_loss, swa_model = train(model, training_transformations, args)
+        filename_extras = "_swa_{}".format(args.swa_start) if args.swa_start else ""
+        prefix = '{}{}.pt'.format(datetime.now().strftime("%Y_%m_%d_%H%M"), filename_extras)
+        weights_filepath = os.path.join(os.path.abspath(os.path.dirname(__file__)), "results", "global_weights_{}".format(prefix))
+        train_loss_filepath = os.path.join(os.path.abspath(os.path.dirname(__file__)), "results", "train_loss_{}".format(prefix))
+        torch.save(model.module.state_dict(), weights_filepath)
+        torch.save(train_loss, train_loss_filepath)
+        if args.swa_start:
+            swa_weights_filepath = os.path.join(os.path.abspath(os.path.dirname(__file__)), "results", "swa_weights_{}".format(prefix))
+            torch.save(swa_model.module.state_dict(), swa_weights_filepath)
         if args.print_progress:
             print("Model end train time: {}".format(datetime.now().strftime("%Y-%m-%d_%H%M")))
     else:
