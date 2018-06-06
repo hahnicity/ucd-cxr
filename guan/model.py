@@ -8,6 +8,7 @@ import multiprocessing
 import os
 from time import time
 
+import numpy as np
 import torch
 import torchvision
 from torchvision import transforms
@@ -86,23 +87,22 @@ def test(model, transformations, args):
         bs, c, h, w = inp.size()
         input_var = torch.autograd.Variable(inp.view(-1, c, h, w).cuda(), volatile=True)
         output = model(input_var)
-        # Oh. They're taking the mean of all the crops here. It's almost like
-        # an ensemble in itself.
-        output_mean = output.view(bs, n_crops, -1).mean(1)
-        # and this line doesn't actually do anything besides concatenate to an
-        # array.
-        pred = torch.cat((pred, output), 0)
+        # The .data method converts from Variable to Tensor. And you can only
+        # concatenate a tensor with a tensor, not variable with a tensor.
+        pred = torch.cat((pred, output.data), 0)
+        print('Batch: {}/{}\r'.format(i, len(test_loader)), end="")
 
     AUROCs = compute_AUCs(gt, pred)
     AUROC_avg = np.array(AUROCs).mean()
     print('The average AUROC is {AUROC_avg:.3f}'.format(AUROC_avg=AUROC_avg))
-    for i in range(N_CLASSES):
+    for i in range(len(constants.CLASS_NAMES)):
         print('The AUROC of {} is {}'.format(constants.CLASS_NAMES[i], AUROCs[i]))
 
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('--data-path', help='path to dataset', default='/data/datasets/chestxray14/')
+    parser.add_argument('--load-weights', help='path to file of weights to load')
+    parser.add_argument('--data-path', help='path to dataset', default='/fastdata/chestxray14/')
     parser.add_argument('--epochs', type=int, help='number of epochs to train model for', default=50)
     parser.add_argument('--batch-size', type=int, help='batch size of the global branch', default=128)
     parser.add_argument('--lr-decay-epochs', type=int, default=20, help='number of epochs before we decay the learning rate')
@@ -115,17 +115,21 @@ def main():
     model = torch.nn.DataParallel(model).cuda()
     normalize = transforms.Normalize([0.485, 0.456, 0.406],
                                      [0.229, 0.224, 0.225])
-    training_transformations = transforms.Compose([
-        transforms.Resize(256),
-        transforms.RandomResizedCrop(224),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        normalize,
-    ])
-    model, train_loss = train(model, training_transformations, args)
-    torch.save(model.module, 'guan_global_{}.pt'.format(datetime.now().strftime("%Y_%m_%d_%H%M")))
-    if args.print_progress:
-        print("Model end train time: {}".format(datetime.now().strftime("%Y-%m-%d_%H%M")))
+    if not args.load_weights:
+        training_transformations = transforms.Compose([
+            transforms.Resize(256),
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
+        ])
+        model, train_loss = train(model, training_transformations, args)
+        torch.save(model.module.state_dict(), 'guan_global_{}.pt'.format(datetime.now().strftime("%Y_%m_%d_%H%M")))
+        if args.print_progress:
+            print("Model end train time: {}".format(datetime.now().strftime("%Y-%m-%d_%H%M")))
+    else:
+        model_weights = torch.load(args.load_weights)
+        model.module.load_state_dict(model_weights)
 
     validation_transformations = transforms.Compose([
         transforms.Resize(256),

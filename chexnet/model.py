@@ -1,4 +1,6 @@
 # encoding: utf-8
+#
+# Code shamelessly taken from https://github.com/arnoweng/CheXNet
 
 """
 The main CheXNet model implementation.

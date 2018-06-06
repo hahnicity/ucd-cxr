@@ -1,6 +1,8 @@
 from sklearn.metrics import roc_auc_score
 import torch
 
+from cxrlib import constants
+
 
 class Meter():
     """
@@ -53,6 +55,6 @@ def compute_AUCs(gt, pred):
     AUROCs = []
     gt_np = gt.cpu().numpy()
     pred_np = pred.cpu().numpy()
-    for i in range(N_CLASSES):
+    for i in range(len(constants.CLASS_NAMES)):
         AUROCs.append(roc_auc_score(gt_np[:, i], pred_np[:, i]))
     return AUROCs
