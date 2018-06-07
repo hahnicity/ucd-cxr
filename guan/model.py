@@ -90,12 +90,13 @@ def train(model, saved_objects, args):
         if args.swa_start:
             swa.step()
         if args.test_on_train_ep:
-            auc = np.array(test(model, args)).mean()
-            test_auc.update(auc)
+            model_auc = np.array(test(model, args)).mean()
+            test_auc.update(model_auc)
         if args.test_on_train_ep and args.swa_start and swa.is_swa_training():
-            swa.bn_update()
-            auc = np.array(test(swa_model, args)).mean()
-            swa_test_auc.update(auc)
+            if ep < args.epochs - 1:
+                swa.bn_update()
+            swa_auc = np.array(test(swa_model, args)).mean()
+            swa_test_auc.update(swa_auc)
         model.train()
         print("end epoch {}".format(ep))
     return model
@@ -119,7 +120,6 @@ def test(model, args):
         dataset=test_dataset, batch_size=args.batch_size,
         shuffle=False, num_workers=multiprocessing.cpu_count(), pin_memory=True
     )
-    model.eval()
 
     gt = torch.FloatTensor()
     gt = gt.cuda()

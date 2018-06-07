@@ -79,7 +79,7 @@ class SWA(object):
         self.swa_model.apply(self.reset_bn)
         self.swa_model.apply(lambda module: self._get_momenta(module, momenta))
         n = 0
-        for input, _ in self.loader:
+        for i, (input, _) in enumerate(self.loader):
             if self.device == 'cuda':
                 input = input.cuda(async=True)
             input_var = torch.autograd.Variable(input)
