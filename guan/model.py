@@ -99,6 +99,7 @@ def train(model, saved_objects, args):
             swa_test_auc.update(swa_auc)
         model.train()
         print("end epoch {}".format(ep))
+
     return model
 
 

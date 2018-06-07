@@ -34,16 +34,8 @@ class SWA(object):
         self.epoch_num += 1
 
     def update_weights(self):
-        swa_state_dict = self.swa_model.state_dict()
-        non_swa_state_dict = self.non_swa_model.state_dict()
-        for key in self.non_swa_model.state_dict().keys():
-            if "weight" in key or "bias" in key:
-                swa_param = swa_state_dict[key]
-                non_swa_param = non_swa_state_dict[key]
-                swa_param = ((swa_param * self.n_models) + non_swa_param) / (self.n_models + 1)
-
-                swa_state_dict[key] = swa_param
-        self.swa_model.load_state_dict(swa_state_dict)
+        for non_swa_param, swa_param in zip(self.non_swa_model.parameters(), self.swa_model.parameters()):
+            swa_param.data = ((swa_param.data * self.n_models) + non_swa_param.data) / (self.n_models + 1)
 
     def _check_bn(self, module, flag):
         if issubclass(module.__class__, torch.nn.modules.batchnorm._BatchNorm):
