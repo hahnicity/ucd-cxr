@@ -40,6 +40,7 @@ def train(model, saved_objects, args):
         dataset=train_dataset, batch_size=args.batch_size,
         shuffle=False, num_workers=multiprocessing.cpu_count(), pin_memory=True
     )
+    # Set model.training to True. This determines how batch norm and dropout perform
     model.train()
 
     if args.swa_start:
@@ -95,6 +96,7 @@ def train(model, saved_objects, args):
             swa.bn_update()
             auc = np.array(test(swa_model, args)).mean()
             swa_test_auc.update(auc)
+        model.train()
         print("end epoch {}".format(ep))
     return model
 

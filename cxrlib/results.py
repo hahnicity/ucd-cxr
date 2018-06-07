@@ -27,19 +27,21 @@ class SavedObjects(object):
         self.saved_objects = []
         self.file_dir = file_dir
 
-    def register(self, obj, file_prefix, is_model):
+    def register(self, obj, file_prefix, save_weights):
         """
         :param obj: object you want to save later
         :param file_prefix: prefix of file to save eg. "model_weights"
-        :param is_model: True if its a nn model. False otherwise. We do this so we only save model weights and not the entire model
+        :param save_weights: True if its a nn model and we only want to save weights.
+                             False otherwise. We do this so we only save model weights
+                             and not the entire model
         """
-        self.saved_objects.append((obj, file_prefix, is_model))
+        self.saved_objects.append((obj, file_prefix, save_weights))
 
     def save_all(self, file_suffix):
-        for obj, prefix, is_model in self.saved_objects:
+        for obj, prefix, save_weights in self.saved_objects:
             filename = "_".join([prefix, file_suffix]) + ".pt"
             filepath = os.path.join(self.file_dir, filename)
-            if is_model:
+            if save_weights:
                 torch.save(obj.state_dict(), filepath)
             else:
                 torch.save(obj, filepath)
