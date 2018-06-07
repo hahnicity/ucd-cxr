@@ -53,18 +53,24 @@ def train(model, saved_objects, args):
         saved_objects.register(swa_model, "swa_weights", True)
 
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0001)
-    if args.fge_start:
+    # XXX presumably whatever method I use for reducing logical complexity would
+    # still have if/else blocks for object initialization and registration, but
+    # would have easier logic for runtime operations.
+    if args.fge_start or args.lr_mode == 'cyclic':
         scheduler = CyclicLR(
             optimizer,
             base_lr=args.cyclic_lr_min,
             max_lr=args.cyclic_lr_max,
             step_size=len(train_dataset)*args.cycle_step_multi
         )
+        lr_meter = Meter("lr")
+        saved_objects.register(lr_meter, "lr", False)
+    if args.fge_start:
         fge = FastGeometricEnsemble(scheduler, model, args.fge_start)
         fge_test_auc = Meter("fge_test_auc")
         saved_objects.register(fge.ensemble, "fge_ensemble", False)
         saved_objects.register(fge_test_auc, "fge_test_auc", False)
-    else:
+    if args.lr_mode == 'constant':
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_decay_epochs)
     criterion = torch.nn.BCELoss()
 
@@ -81,11 +87,16 @@ def train(model, saved_objects, args):
 
     for ep in range(args.epochs):
         # XXX there needs to be a better way of handling multiple schedulers
-        if not args.fge_start:
-            scheduler.step()
+        #
+        # Probably looks something like splitting things into steps like
+        # batch_start, batch_end, epoch_start, epoch_end
+        #
+        # This approach may also enable me to create classes that enable for other
+        # more diverse actions like what train_on_test_ep parameter requires
         for i, (inp, target) in enumerate(train_loader):
-            if args.fge_start:
+            if args.fge_start or args.lr_mode == 'cyclic':
                 scheduler.batch_step()
+                lr_meter.update(scheduler.get_lr()[0])
             start_batch = time()
             target = target.cuda(async=True)
             inp = inp.cuda(async=True)
@@ -106,6 +117,8 @@ def train(model, saved_objects, args):
                 ), end="")
             if args.fge_start:
                 fge.batch_step()
+        if not args.fge_start and not args.lr_mode == 'cyclic':
+            scheduler.step()
         if args.fge_start:
             fge.epoch_step()
 
@@ -192,8 +205,9 @@ def main():
     parser.add_argument('--test-on-train-ep', action='store_true', help='Test on a training epoch')
     parser.add_argument('--print-results', action='store_true', help='print results at the end of a test execution')
     parser.add_argument('--fge-start', type=int, help="Run Fast Geometric Ensembling at a particular epoch")
-    parser.add_argument('--cyclic-lr-min', type=float, default=1e-3, help='Minimum cyclic learning rate: note cyclic LRs are not used unless FGE is enabled')
-    parser.add_argument('--cyclic-lr-max', type=float, default=6e-3, help='Maximum cyclic learning rate: note cyclic LRs are not used unless FGE is enabled')
+    parser.add_argument('--lr-mode', choices=['cyclic', 'constant'], help='Choose between cyclic SGD or constant SGD', default='constant')
+    parser.add_argument('--cyclic-lr-min', type=float, default=1e-3, help='Minimum cyclic learning rate')
+    parser.add_argument('--cyclic-lr-max', type=float, default=6e-3, help='Maximum cyclic learning rate')
     parser.add_argument('--cycle-step-multi', type=int, default=4, help='Multiple of the total number of batches we want our cycle length to be')
     args = parser.parse_args()
 
