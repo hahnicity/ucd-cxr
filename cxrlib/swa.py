@@ -18,15 +18,14 @@ class SWA(object):
         self.device = device
         self.epoch_num = 1
         self.n_models = 0
+        self.swa_is_training = False
 
     def is_swa_training(self):
-        if self.epoch_num >= self.epoch_start:
-            return True
-        else:
-            return False
+        return self.swa_is_training
 
     def step(self):
         if self.epoch_num >= self.epoch_start:
+            self.swa_is_training = True
             self.update_weights()
             self.n_models += 1
         if self.epoch_num == self.total_epochs:

@@ -1,6 +1,8 @@
 """
 Reproduce as much of Guan's work as we care to. For now the global branch is good
 enough.
+
+This module is getting to become a bit unwieldy with all the if statements
 """
 from argparse import ArgumentParser
 from copy import deepcopy
@@ -15,6 +17,8 @@ import torchvision
 from torchvision import transforms
 
 from cxrlib import constants
+from cxrlib.fge import FastGeometricEnsemble
+from cxrlib.learning_rate import CyclicLR
 from cxrlib.models import GuanResNet50
 from cxrlib.read_data import ChestXrayDataSet
 from cxrlib.results import compute_AUCs, Meter, SavedObjects
@@ -49,8 +53,21 @@ def train(model, saved_objects, args):
         saved_objects.register(swa_model, "swa_weights", True)
 
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0001)
+    if args.fge_start:
+        scheduler = CyclicLR(
+            optimizer,
+            base_lr=args.cyclic_lr_min,
+            max_lr=args.cyclic_lr_max,
+            step_size=len(train_dataset)*args.cycle_step_multi
+        )
+        fge = FastGeometricEnsemble(scheduler, model, args.fge_start)
+        fge_test_auc = Meter("fge_test_auc")
+        saved_objects.register(fge.ensemble, "fge_ensemble", False)
+        saved_objects.register(fge_test_auc, "fge_test_auc", False)
+    else:
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_decay_epochs)
     criterion = torch.nn.BCELoss()
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_decay_epochs)
+
     train_batch_loss = Meter('train_batch_loss')
     train_epoch_loss = Meter('train_epoch_loss')
     saved_objects.register(train_batch_loss, "train_batch_loss", False)
@@ -63,8 +80,12 @@ def train(model, saved_objects, args):
         saved_objects.register(swa_test_auc, 'swa_test_auc', False)
 
     for ep in range(args.epochs):
-        scheduler.step()
+        # XXX there needs to be a better way of handling multiple schedulers
+        if not args.fge_start:
+            scheduler.step()
         for i, (inp, target) in enumerate(train_loader):
+            if args.fge_start:
+                scheduler.batch_step()
             start_batch = time()
             target = target.cuda(async=True)
             inp = inp.cuda(async=True)
@@ -83,6 +104,10 @@ def train(model, saved_objects, args):
                 print('Epoch: {}/{}, Batch: {}/{}, Batch time: {}, Loss: {}\r'.format(
                     ep+1, args.epochs, i, len(train_loader), batch_time, str(train_batch_loss)
                 ), end="")
+            if args.fge_start:
+                fge.batch_step()
+        if args.fge_start:
+            fge.epoch_step()
 
         train_epoch_loss.update(train_batch_loss.value())
         if args.print_progress:
@@ -97,6 +122,9 @@ def train(model, saved_objects, args):
                 swa.bn_update()
             swa_auc = np.array(test(swa_model, args)).mean()
             swa_test_auc.update(swa_auc)
+        if args.test_on_train_ep and args.fge_start and fge.n_models > 0:
+            fge_auc = np.array(test(fge.ensemble, args)).mean()
+            fge_test_auc.update(fge_auc)
         model.train()
         print("end epoch {}".format(ep))
 
@@ -163,6 +191,10 @@ def main():
     parser.add_argument('--swa-start', type=int, help='Run with Stochastic Weight Averaging and start SWA at a particular epoch')
     parser.add_argument('--test-on-train-ep', action='store_true', help='Test on a training epoch')
     parser.add_argument('--print-results', action='store_true', help='print results at the end of a test execution')
+    parser.add_argument('--fge-start', type=int, help="Run Fast Geometric Ensembling at a particular epoch")
+    parser.add_argument('--cyclic-lr-min', type=float, default=1e-3, help='Minimum cyclic learning rate: note cyclic LRs are not used unless FGE is enabled')
+    parser.add_argument('--cyclic-lr-max', type=float, default=6e-3, help='Maximum cyclic learning rate: note cyclic LRs are not used unless FGE is enabled')
+    parser.add_argument('--cycle-step-multi', type=int, default=4, help='Multiple of the total number of batches we want our cycle length to be')
     args = parser.parse_args()
 
     print("Model start time: {}".format(datetime.now().strftime("%Y-%m-%d_%H%M")))
