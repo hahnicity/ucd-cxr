@@ -61,7 +61,7 @@ def train(model, saved_objects, args):
             optimizer,
             base_lr=args.cyclic_lr_min,
             max_lr=args.cyclic_lr_max,
-            step_size=len(train_dataset)*args.cycle_step_multi
+            step_size=len(train_loader)*args.cycle_step_multi
         )
         lr_meter = Meter("lr")
         saved_objects.register(lr_meter, "lr", False)
@@ -70,7 +70,7 @@ def train(model, saved_objects, args):
         fge_test_auc = Meter("fge_test_auc")
         saved_objects.register(fge.ensemble, "fge_ensemble", False)
         saved_objects.register(fge_test_auc, "fge_test_auc", False)
-    if args.lr_mode == 'constant':
+    if args.lr_mode == 'constant' and not args.fge_start:
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_decay_epochs)
     criterion = torch.nn.BCELoss()
 
@@ -84,6 +84,12 @@ def train(model, saved_objects, args):
     if args.test_on_train_ep and args.swa_start:
         swa_test_auc = Meter('swa_test_auc')
         saved_objects.register(swa_test_auc, 'swa_test_auc', False)
+    if args.test_on_batch:
+        n_batch = 0
+        test_auc = Meter('test_auc')
+        lr_v_auc_meter = Meter('lr_v_auc')
+        saved_objects.register(test_auc, "test_auc", False)
+        saved_objects.register(lr_v_auc_meter, "lr_v_auc", False)
 
     for ep in range(args.epochs):
         # XXX there needs to be a better way of handling multiple schedulers
@@ -115,8 +121,17 @@ def train(model, saved_objects, args):
                 print('Epoch: {}/{}, Batch: {}/{}, Batch time: {}, Loss: {}\r'.format(
                     ep+1, args.epochs, i, len(train_loader), batch_time, str(train_batch_loss)
                 ), end="")
+
             if args.fge_start:
                 fge.batch_step()
+            if args.test_on_batch:
+                n_batch += 1
+                if n_batch % args.test_on_batch == 0 or len(train_loader) * args.epochs == n_batch:
+                    model_auc = np.array(test(model, args)).mean()
+                    test_auc.update(model_auc)
+                    # XXX this is generic but for now I don't care
+                    lr_v_auc_meter.update(scheduler.get_lr()[0])
+
         if not args.fge_start and not args.lr_mode == 'cyclic':
             scheduler.step()
         if args.fge_start:
@@ -139,7 +154,7 @@ def train(model, saved_objects, args):
             fge_auc = np.array(test(fge.ensemble, args)).mean()
             fge_test_auc.update(fge_auc)
         model.train()
-        print("end epoch {}".format(ep))
+        print("end epoch {}".format(ep+1))
 
     return model
 
@@ -196,6 +211,7 @@ def test(model, args):
 def main():
     parser = ArgumentParser()
     parser.add_argument('--load-weights', help='path to file of weights to load')
+    parser.add_argument('--load-model', help='path to file of model we want to load')
     parser.add_argument('--data-path', help='path to dataset', default='/fastdata/chestxray14/')
     parser.add_argument('--epochs', type=int, help='number of epochs to train model for', default=50)
     parser.add_argument('--batch-size', type=int, help='batch size of the global branch', default=128)
@@ -203,12 +219,14 @@ def main():
     parser.add_argument('--print-progress', action='store_true', help='flag to use if you want to track the models training progress')
     parser.add_argument('--swa-start', type=int, help='Run with Stochastic Weight Averaging and start SWA at a particular epoch')
     parser.add_argument('--test-on-train-ep', action='store_true', help='Test on a training epoch')
+    parser.add_argument('--test-on-batch', type=int, help='Test on every nth batch')
     parser.add_argument('--print-results', action='store_true', help='print results at the end of a test execution')
     parser.add_argument('--fge-start', type=int, help="Run Fast Geometric Ensembling at a particular epoch")
     parser.add_argument('--lr-mode', choices=['cyclic', 'constant'], help='Choose between cyclic SGD or constant SGD', default='constant')
     parser.add_argument('--cyclic-lr-min', type=float, default=1e-3, help='Minimum cyclic learning rate')
     parser.add_argument('--cyclic-lr-max', type=float, default=6e-3, help='Maximum cyclic learning rate')
-    parser.add_argument('--cycle-step-multi', type=int, default=4, help='Multiple of the total number of batches we want our cycle length to be')
+    parser.add_argument('--cycle-step-multi', type=int, default=4, help='Multiple of the total number of total training batches we want per half cycle length to be')
+    parser.add_argument('-n', '--experiment-name', default='', help='a friendly experiment name to help you remember the results')
     args = parser.parse_args()
 
     print("Model start time: {}".format(datetime.now().strftime("%Y-%m-%d_%H%M")))
@@ -217,14 +235,16 @@ def main():
     model = torch.nn.DataParallel(model).cuda()
     saved_objs.register(model, "global_weights", True)
 
-    if not args.load_weights:
+    if args.load_weights:
+        model_weights = torch.load(args.load_weights)
+        model.load_state_dict(model_weights)
+    elif args.load_model:
+        model = torch.load(args.load_model)
+    else:
         model = train(model, saved_objs, args)
-        suffix = datetime.now().strftime("%Y_%m_%d_%H%M")
+        suffix = "{}_{}".format(datetime.now().strftime("%Y_%m_%d_%H%M"), args.experiment_name)
         saved_objs.save_all(suffix)
         print("Model end train time: {}".format(datetime.now().strftime("%Y-%m-%d_%H%M")))
-    else:
-        model_weights = torch.load(args.load_weights)
-        model.module.load_state_dict(model_weights)
 
     if not args.test_on_train_ep:
         test(model, args)

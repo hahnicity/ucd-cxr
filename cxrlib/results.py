@@ -5,6 +5,10 @@ import torch
 
 from cxrlib import constants
 
+# XXX A good idea would be to make an overarching results tabulator that can handle
+# multiple streams of results. The deal here is that it would need to keep track of
+# epoch and batch steps and then it could fill in results for both of these
+# as new results are updated.
 
 class SavedObjects(object):
     def __init__(self, file_dir):
