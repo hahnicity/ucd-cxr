@@ -68,7 +68,7 @@ def train(model, saved_objects, args):
     if args.fge_start:
         fge = FastGeometricEnsemble(scheduler, model, args.fge_start)
         fge_test_auc = Meter("fge_test_auc")
-        saved_objects.register(fge.ensemble, "fge_ensemble", False)
+        saved_objects.register(fge, "fge_ensemble", False)
         saved_objects.register(fge_test_auc, "fge_test_auc", False)
     if args.lr_mode == 'constant' and not args.fge_start:
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_decay_epochs)

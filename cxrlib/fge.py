@@ -26,9 +26,8 @@ class Ensemble(torch.nn.Module):
             if result is None:
                 result = module(x)
             else:
-                result = torch.cat([result, module(x)])
-        batch_size = x.size(0)
-        return result.view(batch_size, n_models, -1).mean(1)
+                result = torch.cat([result, module(x)], 0)
+        return result.mean(0)
 
 
 class FastGeometricEnsemble(object):
