@@ -24,7 +24,7 @@ normalize = Normalize([0.485, 0.456, 0.406],
                       [0.229, 0.224, 0.225])
 
 # Generate data
-dataset = RandomDataset(transform=Compose([normalize])
+dataset = RandomDataset(transform=Compose([normalize]))
 
 # DataLoader is a wrapping class that ensures we can process our data in mini-batches
 loader = torch.utils.data.DataLoader(dataset, batch_size=16)
@@ -41,7 +41,7 @@ for ep in range(n_eps):
         # Input our image into the model to get an output
         out = model(inp)
 
-        # Set all gradients to 0 so we do not bias model from previous run
+        # Set all gradients to 0 so we do not bias model from previous mini-batch
         optimizer.zero_grad()
 
         # Compute gradient
