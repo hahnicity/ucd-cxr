@@ -1,3 +1,5 @@
+### Loads weights for PyTorch that will work on your local CPU
+
 import torch
 import torchvision
 
