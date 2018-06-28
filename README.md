@@ -9,14 +9,8 @@ After anaconda builds it you can activate it and install software using
 
     source activate pytorch
     conda install pytorch torchvision scipy numpy matplotlib pandas ipython
-
-Afterwards you can use all software normally. If you are not using lakota then you will have to setup your
-pytorch libraries yourself. You can do this by using the pytorch site for instructions. Once you have finished
-setting up pytorch run setup.py.
-
+    cd ucd-cxr
     python setup.py develop
-
-After this all cxr common libraries should be good for use.
 
 ## Dataset Preprocessing
 If you are using your own machine to run the data then you will need to preprocess the dataset before running it.
