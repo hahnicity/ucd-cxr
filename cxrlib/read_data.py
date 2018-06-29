@@ -12,7 +12,7 @@ import os
 
 
 class ChestXrayDataSet(Dataset):
-    def __init__(self, data_dir, image_list_file, transform=None):
+    def __init__(self, data_dir, image_list_file, is_preprocessed=False, transform=None):
         """
         Args:
             data_dir: path to image directory.
@@ -45,10 +45,12 @@ class ChestXrayDataSet(Dataset):
             image and its labels
         """
         image_name = self.image_names[index]
-        image = Image.open(image_name).convert('RGB')
         label = self.labels[index]
-        if self.transform is not None:
+        if self.transform:
+            image = Image.open(image_name).convert('RGB')
             image = self.transform(image)
+        else:
+            image = torch.load(image_name)
         return image, torch.FloatTensor(label)
 
     def __len__(self):

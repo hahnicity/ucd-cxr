@@ -5,10 +5,6 @@ import torch
 
 from cxrlib import constants
 
-# XXX A good idea would be to make an overarching results tabulator that can handle
-# multiple streams of results. The deal here is that it would need to keep track of
-# epoch and batch steps and then it could fill in results for both of these
-# as new results are updated.
 
 class SavedObjects(object):
     def __init__(self, file_dir):
@@ -21,7 +17,7 @@ class SavedObjects(object):
             model = ResNet50()
             training_loss = []
             saved_objs.register(model, 'resnet50_weights', True)
-            saved_objs.resiter(training_loss, 'train_loss', False)
+            saved_objs.register(training_loss, 'train_loss', False)
 
             ... Do training stuff
             ... Do testing stuff
@@ -50,8 +46,44 @@ class SavedObjects(object):
             else:
                 torch.save(obj, filepath)
 
+# XXX A good idea would be to make an overarching results tabulator that can handle
+# multiple streams of results. The deal here is that it would need to keep track of
+# epoch and batch steps and then it could fill in results for both of these
+# as new results are updated.
+#
+# So doing the batch level and epoch level work is a bit more difficult, so maybe
+# think of a way to come back to that. What is reasonable currently is a series
+# of pre-made meters for loss, timing, etc
 
-class Meter():
+class Reporting(SavedObjects):
+    def __init__(self, file_dir):
+        super(Reporting, self).__init__(file_dir)
+        self.meters = {
+            "train_loss": Meter('train_loss'),
+            "batch_time": Meter('batch_time'),
+            'test_auc': Meter('test_auc'),
+        }
+        for name, meter in self.meters.items():
+            self.register(meter, name, False)
+
+    def get_meter(self, name):
+        """
+        :param name: meter name
+        """
+        return self.meters[name]
+
+    def new_meter(self, name):
+        """
+        :param name: meter name
+        """
+        self.meters[name] = Meter(name)
+        self.register(self.meters[name])
+
+    def update(self, meter, val):
+        self.meters[meter].update(val)
+
+
+class Meter(object):
     """
     A little helper class which keeps track of statistics during an epoch.
     """
@@ -60,7 +92,7 @@ class Meter():
         if type(name) == str:
             name = (name,)
         self.name = name
-        self.values = torch.FloatTensor()
+        self.values = torch.FloatTensor([])
         self._total = torch.zeros(len(self.name))
         self._last_value = torch.zeros(len(self.name))
         self._count = 0.0
@@ -69,10 +101,10 @@ class Meter():
         self._count = self._count + n
         if isinstance(data, torch.autograd.Variable):
             self._last_value.copy_(data.data)
-            self.values = torch.cat((self.values, data.data.cpu()), 0)
+            self.values = torch.cat((self.values, data.data.cpu().view(1)), 0)
         elif isinstance(data, torch.Tensor):
             self._last_value.copy_(data)
-            self.values = torch.cat((self.values, data.cpu()), 0)
+            self.values = torch.cat((self.values, data.cpu().view(1)), 0)
         else:
             self._last_value.fill_(data)
             self.values = torch.cat((self.values, torch.FloatTensor([data])), 0)
