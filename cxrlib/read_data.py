@@ -3,12 +3,14 @@
 """
 Read images and corresponding labels.
 """
+import multiprocessing
+import os
 
 import numpy as np
+from PIL import Image
 import torch
 from torch.utils.data import Dataset
-from PIL import Image
-import os
+from torchvision import transforms
 
 
 class ChestXrayDataSet(Dataset):
@@ -76,3 +78,50 @@ class RandomDataset(Dataset):
 
     def __len__(self):
         return len(self.data)
+
+
+def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count()):
+    """
+    Get data loaders for Guan method. For initial prototyping these data loaders can
+    be useful. However, there are still improvements that can be made and it should not
+    be used long-term
+
+    :param images_path: path to directory where all images are located
+    :param labels_path: path to directory where all labels are located
+    :param batch_size: size of mini-batches for train and test sets
+    :param num_workers: number of cpu workers to use when loading data
+    """
+    normalize = transforms.Normalize([0.485, 0.456, 0.406],
+                                     [0.229, 0.224, 0.225])
+    transformations = transforms.Compose([
+        transforms.Resize(256),
+        transforms.RandomResizedCrop(224),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        normalize,
+    ])
+    train_dataset = ChestXrayDataSet(
+        data_dir=images_path,
+        image_list_file=os.path.join(labels_path, "train_val_list.processed"),
+        transform=transformations
+    )
+    train_loader = torch.utils.data.DataLoader(
+        dataset=train_dataset, batch_size=batch_size,
+        shuffle=False, num_workers=num_workers, pin_memory=True
+    )
+    transformations = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        normalize,
+    ])
+    test_dataset = ChestXrayDataSet(
+        data_dir=images_path,
+        image_list_file=os.path.join(labels_path, "test_list.processed"),
+        transform=transformations
+    )
+    test_loader = torch.utils.data.DataLoader(
+        dataset=test_dataset, batch_size=batch_size,
+        shuffle=False, num_workers=num_workers, pin_memory=True
+    )
+    return train_loader, test_loader

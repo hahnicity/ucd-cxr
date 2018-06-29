@@ -19,7 +19,7 @@ from torchvision import transforms
 from cxrlib import constants
 from cxrlib.fge import FastGeometricEnsemble
 from cxrlib.learning_rate import CyclicLR
-from cxrlib.models import GuanResNet50
+from cxrlib.models.guan_resnet import GuanResNet50
 from cxrlib.read_data import ChestXrayDataSet
 from cxrlib.results import compute_AUCs, Meter, SavedObjects
 from cxrlib.swa import SWA

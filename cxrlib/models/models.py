@@ -1,11 +1,12 @@
 """
-models
-~~~~~~
+wide_resnet
+~~~~~~~~~~~
 
-Models we can normally use in training.
+Wide Resnet can be found here: https://arxiv.org/pdf/1605.07146.pdf
 
-Guan: https://arxiv.org/abs/1801.09927
-Wide Resnet: https://arxiv.org/pdf/1605.07146.pdf
+An important thing to note is that as model size grows larger so does memory
+requirement. Thus even with 24GB GPU memory we are severely limited in
+the size of our network. The max I was able to do was 40-2
 """
 import sys
 
@@ -15,18 +16,6 @@ import torch.nn as nn
 import torch.nn.init as init
 import torch.nn.functional as F
 import torchvision
-
-
-class GuanResNet50(torch.nn.Module):
-    def __init__(self):
-        super(GuanResNet50, self).__init__()
-        self.model = torchvision.models.resnet50(pretrained=True)
-        self.model.fc = torch.nn.Linear(self.model.fc.in_features, 14)
-        self.sig = torch.nn.Sigmoid()
-
-    def forward(self, x):
-        out = self.model(x)
-        return self.sig(out)
 
 
 def conv3x3(in_planes, out_planes, stride=1):
