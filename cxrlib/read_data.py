@@ -12,6 +12,8 @@ import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
 
+from cxrlib.constants import CXR14_LA_NORM, CXR14_RGB_NORM, IMAGENET_NORM
+
 
 class ChestXrayDataSet(Dataset):
     def __init__(self, data_dir, image_list_file, is_preprocessed=False, transform=None, convert_to='RGB'):
@@ -86,7 +88,7 @@ class RandomDataset(Dataset):
         return len(self.data)
 
 
-def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB'):
+def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14'):
     """
     Get data loaders for Guan method. For initial prototyping these data loaders can
     be useful. However, there are still improvements that can be made and it should not
@@ -96,10 +98,16 @@ def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiproc
     :param labels_path: path to directory where all labels are located
     :param batch_size: size of mini-batches for train and test sets
     :param num_workers: number of cpu workers to use when loading data
-    :param convert_to: convert images to RGB or grayscale (LA)
+    :param convert_to: convert images to RGB or LA (for grayscale)
+    :param norms: the dataset normalization standard we want to use. Accepts cxr14 and imagenet
     """
-    normalize = transforms.Normalize([0.485, 0.456, 0.406],
-                                     [0.229, 0.224, 0.225])
+    if norms == 'cxr14' and convert_to == 'RGB':
+        norms = CXR14_RGB_NORM
+    elif norms == 'cxr14' and convert_to == 'LA':
+        norms = CXR14_LA_NORM
+    elif norms == 'imagenet':
+        norms = IMAGENET_NORM
+    normalize = transforms.Normalize(*norms)
     transformations = transforms.Compose([
         transforms.Resize(256),
         transforms.RandomResizedCrop(224),
