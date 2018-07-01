@@ -14,13 +14,14 @@ from torchvision import transforms
 
 
 class ChestXrayDataSet(Dataset):
-    def __init__(self, data_dir, image_list_file, is_preprocessed=False, transform=None):
+    def __init__(self, data_dir, image_list_file, is_preprocessed=False, transform=None, convert_to='RGB'):
         """
         Args:
             data_dir: path to image directory.
             image_list_file: path to the file containing images
                 with corresponding labels.
             transform: optional transform to be applied on a sample.
+            convert_to: convert the image to rgb (RGB) or grayscale (LA)
         """
         image_names = []
         labels = []
@@ -37,6 +38,7 @@ class ChestXrayDataSet(Dataset):
         self.image_names = image_names
         self.labels = labels
         self.transform = transform
+        self.convert_to = convert_to
 
     def __getitem__(self, index):
         """
@@ -49,8 +51,12 @@ class ChestXrayDataSet(Dataset):
         image_name = self.image_names[index]
         label = self.labels[index]
         if self.transform:
-            image = Image.open(image_name).convert('RGB')
+            image = Image.open(image_name).convert(self.convert_to)
             image = self.transform(image)
+            # If we're converting to grayscale and there's a fourth channel
+            # that we don't want, then remove it
+            if image.size(0) == 2 and self.convert_to == 'LA':
+                image = image[0].view(1, image.size(1), image.size(2))
         else:
             image = torch.load(image_name)
         return image, torch.FloatTensor(label)
@@ -80,7 +86,7 @@ class RandomDataset(Dataset):
         return len(self.data)
 
 
-def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count()):
+def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB'):
     """
     Get data loaders for Guan method. For initial prototyping these data loaders can
     be useful. However, there are still improvements that can be made and it should not
@@ -90,6 +96,7 @@ def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiproc
     :param labels_path: path to directory where all labels are located
     :param batch_size: size of mini-batches for train and test sets
     :param num_workers: number of cpu workers to use when loading data
+    :param convert_to: convert images to RGB or grayscale (LA)
     """
     normalize = transforms.Normalize([0.485, 0.456, 0.406],
                                      [0.229, 0.224, 0.225])
@@ -103,7 +110,8 @@ def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiproc
     train_dataset = ChestXrayDataSet(
         data_dir=images_path,
         image_list_file=os.path.join(labels_path, "train_val_list.processed"),
-        transform=transformations
+        transform=transformations,
+        convert_to=convert_to,
     )
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset, batch_size=batch_size,
@@ -118,7 +126,8 @@ def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiproc
     test_dataset = ChestXrayDataSet(
         data_dir=images_path,
         image_list_file=os.path.join(labels_path, "test_list.processed"),
-        transform=transformations
+        transform=transformations,
+        convert_to=convert_to,
     )
     test_loader = torch.utils.data.DataLoader(
         dataset=test_dataset, batch_size=batch_size,
