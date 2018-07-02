@@ -23,7 +23,7 @@ class GuanResNet50(torch.nn.Module):
 
 class GuanResNet50Grayscale(torch.nn.Module):
     def __init__(self, pretrained=True):
-        super(GuanResNet50, self).__init__()
+        super(GuanResNet50Grayscale, self).__init__()
         self.model = torchvision.models.resnet50(pretrained=pretrained, num_classes=14)
         self.model.conv1 = torch.nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.sig = torch.nn.Sigmoid()

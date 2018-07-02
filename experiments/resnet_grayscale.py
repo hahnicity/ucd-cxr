@@ -5,6 +5,7 @@ import os
 import torch
 from torchvision import transforms
 
+from cxrlib.init import kaiming_init
 from cxrlib.models.resnet_grayscale import resnet50
 from cxrlib.read_data import get_guan_loaders
 from cxrlib.results import Reporting
@@ -31,6 +32,7 @@ def main():
     args = parser.parse_args()
 
     model = resnet50(num_classes=14)
+    model.apply(kaiming_init)
     train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, convert_to='LA')
     cuda_wrapper = lambda x: x.cuda() if args.device == 'cuda' else x
     model = cuda_wrapper(torch.nn.DataParallel(model))
