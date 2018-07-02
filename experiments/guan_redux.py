@@ -55,7 +55,7 @@ def main():
     del train_loader
     torch.cuda.empty_cache()
     runner.generic_test_epoch()
-    reporting.save_all('guan-color')
+    reporting.save_all('guan-color-pretrained-{}'.format(args.pretrained))
 
 
 if __name__ == "__main__":

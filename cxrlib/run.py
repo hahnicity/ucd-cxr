@@ -51,7 +51,7 @@ class RunModel(object):
 
     def generic_train_epoch(self, epoch_num):
         self.model.train()
-        with torch.set_grad_enabled(True):
+        with torch.enable_grad():
             for i, (inp, target) in enumerate(self.train_loader):
                 self.pre_batch_actions()
 
