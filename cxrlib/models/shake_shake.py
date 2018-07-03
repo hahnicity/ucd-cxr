@@ -198,8 +198,8 @@ class Network(nn.Module):
 
         # compute conv feature size
         with torch.no_grad():
-            self.feature_size = self._forward_conv(
-                torch.zeros(*input_shape)).view(-1).shape[0]
+            tmp = self._forward_conv(torch.zeros(*input_shape))
+            self.feature_size = tmp.view(tmp.size(0), -1).size(1)
 
         self.fc = nn.Linear(self.feature_size, n_classes)
 

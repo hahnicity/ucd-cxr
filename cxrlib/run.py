@@ -59,10 +59,9 @@ class RunModel(object):
 
                 target = self.cuda_async_wrapper(target)
                 inp = self.cuda_async_wrapper(inp)
-                bs, c, h, w = inp.size()
                 target = torch.autograd.Variable(target)
-                input_var = torch.autograd.Variable(inp.view(-1, c, h, w))
-                output = self.model(input_var)
+                inp = torch.autograd.Variable(inp)
+                output = self.model(inp)
 
                 self.optimizer.zero_grad()
                 loss = self.criterion(output, target)
@@ -72,6 +71,7 @@ class RunModel(object):
                 batch_time = time() - batch_start
                 self.reporting.update('train_loss', loss)
                 self.reporting.update('batch_time', batch_time)
+                del loss
 
                 if self.print_progress:
                     print('Epoch: {}, Batch: {}/{}, Batch time: {}, Loss: {}\r'.format(
@@ -97,8 +97,8 @@ class RunModel(object):
                 target = self.cuda_async_wrapper(target)
                 # This does not support data augmentation like kfold. In the future
                 # we need to support this
-                input_var = self.cuda_async_wrapper(torch.autograd.Variable(inp.view(-1, c, h, w)))
-                output = self.model(input_var)
+                inp = self.cuda_async_wrapper(torch.autograd.Variable(inp.view(-1, c, h, w)))
+                output = self.model(inp)
                 if pred is None:
                     pred = output.data
                     gt = target

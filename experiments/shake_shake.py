@@ -27,32 +27,35 @@ def main():
     # training options
     parser.add_argument('--epochs', default=50, type=int)
     parser.add_argument('--batch-size', default=32, type=int)
+    parser.add_argument('--debug', action='store_true')
     # model hyperparameters
-    parser.add_argument('--depth', default=32, type=int)
+    parser.add_argument('--depth', default=26, type=int)
+    parser.add_argument('--base-channels', default=16, type=int)
     parser.add_argument('--no-shake-forward', action='store_false')
     parser.add_argument('--no-shake-backward', action='store_false')
     parser.add_argument('--no-shake-image', action='store_false')
     args = parser.parse_args()
 
     config = {
-        'input_shape': (224, 224),
+        'input_shape': (args.batch_size, 3, 224, 224),
         'n_classes': 14,
-        'base_channels': 3,
-        'depth': 34,
+        'base_channels': args.base_channels,
+        'depth': args.depth,
         # These options all come out to be true unless they're set on the CLI
         'shake_forward': args.no_shake_forward,
         'shake_backward': args.no_shake_backward,
         'shake_image': args.no_shake_image,
     }
-    model = Network(config)
-    train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size)
     cuda_wrapper = lambda x: x.cuda() if args.device == 'cuda' else x
-    model = cuda_wrapper(torch.nn.DataParallel(model))
+    model = cuda_wrapper(Network(config))
+    train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size)
+    if not args.debug:
+        model = cuda_wrapper(torch.nn.DataParallel(model))
     optimizer = torch.optim.SGD(model.parameters(), lr=.1, momentum=.9, weight_decay=1e-4)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 15)
     criterion = torch.nn.BCEWithLogitsLoss()
     reporting = Reporting(args.results_path)
-    reporting.register(model, 'shake-shake-depth{}-sf-{}-sb-{}-si-{}'.format(args.depth, args.shake_forward, args.shake_backward, args.shake_image), False)
+    reporting.register(model, 'shake-shake-depth{}-sf-{}-sb-{}-si-{}'.format(args.depth, not args.no_shake_forward, not args.no_shake_backward, not args.no_shake_image), False)
     runner = ShakeShakeRun(
         args,
         model,
@@ -62,7 +65,7 @@ def main():
         lr_scheduler,
         criterion,
         True if args.device == 'cuda' else False,
-        reporting
+        reporting,
     )
     runner.train_multi_epoch(args.epochs)
     del train_loader
