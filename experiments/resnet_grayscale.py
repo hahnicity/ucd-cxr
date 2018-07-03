@@ -5,7 +5,7 @@ import os
 import torch
 from torchvision import transforms
 
-from cxrlib.init import kaiming_init
+from cxrlib.init import kaiming_init, xavier_init
 from cxrlib.models.resnet_grayscale import resnet50
 from cxrlib.read_data import get_guan_loaders
 from cxrlib.results import Reporting
@@ -28,12 +28,20 @@ def main():
     # training options
     parser.add_argument('--epochs', default=50, type=int)
     parser.add_argument('--batch-size', default=32, type=int)
+    parser.add_argument('--weight-init', choices=['xavier', 'kaiming'], default='xavier')
     # model hyperparameters
     args = parser.parse_args()
 
     model = resnet50(num_classes=14)
-    model.apply(kaiming_init)
-    train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, convert_to='LA')
+    if args.weight_init == 'kaiming':
+        model.apply(kaiming_init)
+    elif args.weight_init == 'xavier':
+        model.apply(xavier_init)
+    if "preprocessed" in args.images_path:
+        is_preprocessed = True
+    else:
+        is_preprocessed = False
+    train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, convert_to='LA', is_preprocessed=is_preprocessed)
     cuda_wrapper = lambda x: x.cuda() if args.device == 'cuda' else x
     model = cuda_wrapper(torch.nn.DataParallel(model))
     optimizer = torch.optim.SGD(model.parameters(), lr=.01, momentum=.9, weight_decay=1e-4)
