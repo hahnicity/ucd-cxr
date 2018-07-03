@@ -31,7 +31,7 @@ def main():
     # model hyperparameters
     args = parser.parse_args()
 
-    model = GuanResNet50(pretrained=False)
+    model = GuanResNet50(pretrained=args.pretrained)
     train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size)
     cuda_wrapper = lambda x: x.cuda() if args.device == 'cuda' else x
     model = cuda_wrapper(torch.nn.DataParallel(model))

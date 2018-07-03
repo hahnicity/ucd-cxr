@@ -13,7 +13,8 @@ import torchvision
 class GuanResNet50(torch.nn.Module):
     def __init__(self, pretrained=True):
         super(GuanResNet50, self).__init__()
-        self.model = torchvision.models.resnet50(pretrained=pretrained, num_classes=14)
+        self.model = torchvision.models.resnet50(pretrained=pretrained)
+        self.model.fc = torch.nn.Linear(self.model.fc.in_features, 14, bias=True)
         self.sig = torch.nn.Sigmoid()
 
     def forward(self, x):

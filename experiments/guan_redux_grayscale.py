@@ -32,7 +32,11 @@ def main():
     args = parser.parse_args()
 
     model = GuanResNet50Grayscale(pretrained=args.pretrained)
-    train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, convert_to='LA')
+    if "preprocessed" in args.images_path:
+        is_preprocessed = True
+    else:
+        is_preprocessed = False
+    train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, convert_to='LA', is_preprocessed=is_preprocessed)
     cuda_wrapper = lambda x: x.cuda() if args.device == 'cuda' else x
     model = cuda_wrapper(torch.nn.DataParallel(model))
     optimizer = torch.optim.SGD(model.parameters(), lr=.01, momentum=.9, weight_decay=1e-4)
