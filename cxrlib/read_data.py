@@ -22,6 +22,7 @@ class ChestXrayDataSet(Dataset):
             data_dir: path to image directory.
             image_list_file: path to the file containing images
                 with corresponding labels.
+            is_preprocessed: if the data directory contains preprocessed information. If so do no transformations
             transform: optional transform to be applied on a sample.
             convert_to: convert the image to rgb (RGB) or grayscale (LA)
         """
@@ -41,6 +42,7 @@ class ChestXrayDataSet(Dataset):
         self.labels = labels
         self.transform = transform
         self.convert_to = convert_to
+        self.is_preprocessed = is_preprocessed
 
     def __getitem__(self, index):
         """
@@ -52,7 +54,7 @@ class ChestXrayDataSet(Dataset):
         """
         image_name = self.image_names[index]
         label = self.labels[index]
-        if self.transform:
+        if self.transform and not self.is_preprocessed:
             image = Image.open(image_name).convert(self.convert_to)
             image = self.transform(image)
             # If we're converting to grayscale and there's a fourth channel
@@ -88,7 +90,7 @@ class RandomDataset(Dataset):
         return len(self.data)
 
 
-def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14'):
+def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14', is_preprocessed=False):
     """
     Get data loaders for Guan method. For initial prototyping these data loaders can
     be useful. However, there are still improvements that can be made and it should not
@@ -100,6 +102,7 @@ def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiproc
     :param num_workers: number of cpu workers to use when loading data
     :param convert_to: convert images to RGB or LA (for grayscale)
     :param norms: the dataset normalization standard we want to use. Accepts cxr14 and imagenet
+    :param is_preprocessed: is the dataset preprocessed? Does it need transforms?
     """
     if norms == 'cxr14' and convert_to == 'RGB':
         norms = CXR14_RGB_NORM
@@ -120,6 +123,7 @@ def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiproc
         image_list_file=os.path.join(labels_path, "train_val_list.processed"),
         transform=transformations,
         convert_to=convert_to,
+        is_preprocessed=is_preprocessed,
     )
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset, batch_size=batch_size,
@@ -136,6 +140,7 @@ def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiproc
         image_list_file=os.path.join(labels_path, "test_list.processed"),
         transform=transformations,
         convert_to=convert_to,
+        is_preprocessed=is_preprocessed,
     )
     test_loader = torch.utils.data.DataLoader(
         dataset=test_dataset, batch_size=batch_size,
