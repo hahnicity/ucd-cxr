@@ -5,6 +5,7 @@ import os
 import torch
 from torchvision import transforms
 
+from cxrlib.init import kaiming_init, xavier_init
 from cxrlib.models.shake_shake import Network
 from cxrlib.read_data import get_guan_loaders
 from cxrlib.results import Reporting
@@ -28,6 +29,7 @@ def main():
     parser.add_argument('--epochs', default=50, type=int)
     parser.add_argument('--batch-size', default=32, type=int)
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--weight-init', choices=['xavier', 'kaiming'], default='xavier')
     # model hyperparameters
     parser.add_argument('--depth', default=26, type=int)
     parser.add_argument('--base-channels', default=16, type=int)
@@ -37,7 +39,7 @@ def main():
     args = parser.parse_args()
 
     config = {
-        'input_shape': (args.batch_size, 3, 224, 224),
+        'input_shape': (args.batch_size, 1, 224, 224),
         'n_classes': 14,
         'base_channels': args.base_channels,
         'depth': args.depth,
@@ -48,7 +50,15 @@ def main():
     }
     cuda_wrapper = lambda x: x.cuda() if args.device == 'cuda' else x
     model = cuda_wrapper(Network(config))
-    train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size)
+    if args.weight_init == 'kaiming':
+        model.apply(kaiming_init)
+    elif args.weight_init == 'xavier':
+        model.apply(xavier_init)
+    if "preprocessed" in args.images_path:
+        is_preprocessed = True
+    else:
+        is_preprocessed = False
+    train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, is_preprocessed=True, convert_to='LA')
     if not args.debug:
         model = cuda_wrapper(torch.nn.DataParallel(model))
     optimizer = torch.optim.SGD(model.parameters(), lr=.1, momentum=.9, weight_decay=1e-4)
