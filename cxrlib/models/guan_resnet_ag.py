@@ -1,12 +1,43 @@
 import torch.nn as nn
+import torch.nn.functional as F
 import math
 
 class AttentionGate(nn.Module):
-    def __init__(self):
+    def __init__(self, feature_channels, gate_channels, hidden_channels):
         super(AttentionGate, self).__init__()
-        self.Wg = nn.C
+        self.Wx = nn.Conv3d(
+            in_channels=feature_channels,
+            out_channels=hidden_channels,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+            bias=False)
 
-    def forward(self,attention,feature):
+        self.Wg = nn.Conv3d(
+            in_channels=gate_channels,
+            out_channels=hidden_channels,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+            bias=True)
+
+        self.psi = nn.Conv3d(
+            in_channels=hidden_channels,
+            out_channels=1,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+            bias=True)
+
+
+    def forward(self,feature,attention):
+        q_att = self.psi(F.relu(self.Wx(feature) + self.Wg(attention)))
+        q_att = F.sigmoid(q_att)
+        alpha = F.upsample(q_att,mode='trilinear',size=feature.size()[2:0])
+        output = alpha.expand_as(feature) * feature
+
+        return output
+
 
 
 
