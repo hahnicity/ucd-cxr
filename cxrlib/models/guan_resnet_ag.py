@@ -2,6 +2,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 
+class ShallowAggregation(nn.Module):
+    def __init__(self):
+        super(AggregationLayer, self).__init__()
+
+    def forward(self,input1,input2):
+        
+
 class AttentionGate(nn.Module):
     def __init__(self, feature_channels, gate_channels, hidden_channels):
         super(AttentionGate, self).__init__()
@@ -31,6 +38,7 @@ class AttentionGate(nn.Module):
 
 
     def forward(self,feature,attention):
+        # may need to add upsampling to match dimension before add
         q_att = self.psi(F.relu(self.Wx(feature) + self.Wg(attention)))
         q_att = F.sigmoid(q_att)
         alpha = F.upsample(q_att,mode='trilinear',size=feature.size()[2:0])
@@ -128,14 +136,22 @@ class GuanResNet50_AG(torch.nn.Module):
         x = self.relu(x)
         x = self.maxpool(x)
 
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
+        x1  = self.layer1(x)
+        ag1 = AttentionGate(x,x1)
+        x2  = self.layer2(x1)
+        ag2 = AttentionGate(x1,x2)
+        x3  = self.layer3(x1,x2)
+        ag3 = AttentionGate(x2,x3)
+        x4  = self.layer4(x3)
+        ag4 = AttentionGate(x3,x4)
 
-        x = self.avgpool(x)
-        x = x.view(x.size(0), -1)
-        x = self.fc(x)
-        x = self.sig(x)
+        aggre = ShallowAggregation(x4,ag4)
+        aggre = ShallowAggregation(aggre,ag3)
+        aggre = ShallowAggregation(aggre,ag2)
+        aggre = ShallowAggregation(aggre,ag1)
 
-        return x
+        aggre = self.avgpool(aggre)
+        aggre = aggre.view(aggre.size(0), -1)
+        output = self.sig(self.fc(aggre))
+
+        return output
