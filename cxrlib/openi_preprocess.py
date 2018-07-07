@@ -15,6 +15,8 @@ import operator
 import os
 import xml.etree.ElementTree as ET
 
+from sklearn.model_selection import train_test_split
+
 
 # XXX it would be good to talk to doctors about this
 TAGS_TO_KEEP = {
@@ -50,12 +52,22 @@ def determine_lung_issue(text):
         return determine_lung_issue('/'.join(text.split('/')[1:]))
 
 
+def output_file(filepath, processed):
+    with open(filepath, 'w') as f:
+        writer = csv.writer(f, delimiter=' ')
+        writer.writerows(processed)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('dir')
     parser.add_argument('--output-dir')
-    parser.add_argument('--output-filename', default='openi_processed_labels.csv')
+    parser.add_argument('--train-percent', type=int, choices=[70, 80, 100], default=100)
+    parser.add_argument('--validation-percent', type=int, choices=[10, 0], default=0)
     args = parser.parse_args()
+    if args.train_percent == 100 and args.validation_percent == 10:
+        raise Exception('Cannot utilize all data for training and 10% for validation too!')
+
     manual_tags = {}
     automatic_tags = {}
     report_struct = []
@@ -137,9 +149,22 @@ def main():
             processed.append([frontal_img] + y)
 
     output_dir = args.dir if not args.output_dir else args.output_dir
-    with open(os.path.join(output_dir, args.output_filename), 'w') as f:
-        writer = csv.writer(f, delimiter=' ')
-        writer.writerows(processed)
+    if args.train_percent == 100:
+        filepath = os.path.join(output_dir, "openi_labels_all_images_processed.csv")
+        output_file(filepath, processed)
+    else:
+        train_len = int(len(processed) * (args.train_percent / 100))
+        val_len = int(len(processed) * (args.validation_percent / 100))
+        _, __, y_train, y_test = train_test_split([None] * len(processed), processed, train_size=(train_len+val_len))
+        if args.validation_percent > 0:
+            _, __, y_train, y_val = train_test_split([None] * len(y_train), y_train, train_size=train_len)
+            val_filepath = os.path.join(output_dir, "openi_labels_val_processed.csv")
+            output_file(val_filepath, y_val)
+
+        train_filepath = os.path.join(output_dir, "openi_labels_train_processed.csv")
+        test_filepath = os.path.join(output_dir, "openi_labels_test_processed.csv")
+        output_file(train_filepath, y_train)
+        output_file(test_filepath, y_test)
 
 
 if __name__ == "__main__":
