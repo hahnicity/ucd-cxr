@@ -4,12 +4,12 @@ from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 from torch.optim import SGD
 from torch.nn import BCELoss
 
-from cxrlib.models import GuanResNet50
+from cxrlib.models import guan_resnet_ag
 from cxrlib.read_data import ChestXrayDataSet
 from cxrlib.results import compute_AUCs
 
 # Run modified version of resnet50 on GPU
-model = GuanResNet50().cuda()
+model = guan_resnet_ag.GuanResNet50_AG().cuda()
 # Ensure that we can run the model on multiple GPUs
 model = torch.nn.DataParallel(model)
 model.train()
@@ -36,7 +36,7 @@ for ep in range(n_eps):
         loss = criterion(out, target)
         loss.backward()
         optimizer.step()
-        
+
         # Quit after <max_batches> otherwise we will run for too long
         if batch_n > max_batches:
             break
@@ -65,11 +65,11 @@ for inp, target in loader:
     # ground truth information as well
     pred = torch.cat((pred, out.data), 0)
     gt = torch.cat((gt, target.data), 0)
-    
+
     if batch_n > max_batches:
         break
     batch_n += 1
 
-# Compute the model area under curve (AUC). 
+# Compute the model area under curve (AUC).
 auc = compute_AUCs(gt, pred)
 print("AUC Results: {}".format(sum(auc) / len(auc)))
