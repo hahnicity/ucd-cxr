@@ -6,7 +6,7 @@ import torch
 class AttentionGate(nn.Module):
     def __init__(self, feature_channels, gate_channels, hidden_channels):
         super(AttentionGate, self).__init__()
-        self.Wx = nn.Conv3d(
+        self.Wx = nn.Conv2d(
             in_channels=feature_channels,
             out_channels=hidden_channels,
             kernel_size=1,
@@ -14,7 +14,7 @@ class AttentionGate(nn.Module):
             padding=0,
             bias=False)
 
-        self.Wg = nn.Conv3d(
+        self.Wg = nn.Conv2d(
             in_channels=gate_channels,
             out_channels=hidden_channels,
             kernel_size=1,
@@ -22,7 +22,7 @@ class AttentionGate(nn.Module):
             padding=0,
             bias=True)
 
-        self.psi = nn.Conv3d(
+        self.psi = nn.Conv2d(
             in_channels=hidden_channels,
             out_channels=1,
             kernel_size=1,
@@ -33,9 +33,9 @@ class AttentionGate(nn.Module):
 
     def forward(self,feature,attention):
         x = self.Wx(feature)
-        g = F.upsample(self.Wg(attention),mode='trilinear',size=x.size()[2:])
+        g = F.upsample(self.Wg(attention),mode='bilinear',size=x.size()[2:])
         q_att = F.sigmoid(self.psi(F.relu(x + g)))
-        alpha = F.upsample(q_att,mode='trilinear',size=feature.size()[2:0])
+        alpha = F.upsample(q_att,mode='bilinear',size=feature.size()[2:])
         output = alpha.expand_as(feature) * feature
         return output
 
@@ -124,6 +124,8 @@ class GuanResNet50_AG(torch.nn.Module):
 
 
     def forward(self, x):
+        #print(x.size())
+        batch_size = x.size()[0]
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -132,19 +134,23 @@ class GuanResNet50_AG(torch.nn.Module):
         x1  = self.layer1(x)
         x2  = self.layer2(x1)
         x3  = self.layer3(x2)
-        ag3 = AttentionGate(x2,x3)
         x4  = self.layer4(x3)
-        ag4 = AttentionGate(x3,x4)
+        #print(x3.size())
+        #print(x4.size())
+        gate= AttentionGate(1024,2048,16).cuda()
+        ag = gate(x3,x4)
+        #print(ag.size())
+        #print(x4.size())
+        aggre1 = x4.view(batch_size,-1)
+        aggre2 = ag.view(batch_size,-1)
 
-        aggre1 = x4.view(x4.numel())
-        aggre2 = ag3.view(ag3.numel())
-        aggre3 = ag4.view(ag4.numel())
-
-        aggre = torch.cat((aggre1,aggre2,aggre3),0)
+        aggre = torch.cat((aggre1,aggre2),1)
 
         #aggre = self.avgpool(aggre)
         #aggre = aggre.view(aggre.size(0), -1)
-        fc = nn.Linear(aggre.size(0),14,bias=True)
+        #print(aggre.size())
+        fc = nn.Linear(aggre.size(1),14,bias=True).cuda()
         output = self.sig(fc(aggre))
+        #print(output.size())
 
         return output

@@ -25,7 +25,7 @@ normalize = Normalize([0.485, 0.456, 0.406],
 dataset = ChestXrayDataSet('/fastdata/chestxray14/images',
                            '/fastdata/chestxray14/labels/train_val_list.processed',
                            transform=Compose([Resize(224), ToTensor(), normalize]))
-loader = torch.utils.data.DataLoader(dataset, batch_size=64)
+loader = torch.utils.data.DataLoader(dataset, batch_size=16)
 batch_n = 0
 for ep in range(n_eps):
     for inp, target in loader:
