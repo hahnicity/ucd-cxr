@@ -2,13 +2,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 
-class ShallowAggregation(nn.Module):
-    def __init__(self):
-        super(AggregationLayer, self).__init__()
-
-    def forward(self,input1,input2):
-        
-
 class AttentionGate(nn.Module):
     def __init__(self, feature_channels, gate_channels, hidden_channels):
         super(AttentionGate, self).__init__()
@@ -38,12 +31,11 @@ class AttentionGate(nn.Module):
 
 
     def forward(self,feature,attention):
-        # may need to add upsampling to match dimension before add
-        q_att = self.psi(F.relu(self.Wx(feature) + self.Wg(attention)))
-        q_att = F.sigmoid(q_att)
+        x = self.Wx(feature)
+        g = F.upsample(self.Wg(attention),mode='trilinear',size=x.size()[2:])
+        q_att = F.sigmoid(self.psi(F.relu(x + g)))
         alpha = F.upsample(q_att,mode='trilinear',size=feature.size()[2:0])
         output = alpha.expand_as(feature) * feature
-
         return output
 
 
@@ -100,8 +92,8 @@ class GuanResNet50_AG(torch.nn.Module):
         self.layer2 = self._make_layer(block, 128, 4, stride=2)
         self.layer3 = self._make_layer(block, 256, 6, stride=2)
         self.layer4 = self._make_layer(block, 512, 3, stride=2)
-        self.avgpool = nn.AvgPool2d(7, stride=1)
-        self.fc = nn.Linear(512 * block.expansion, num_classes,bias = True)
+        #self.avgpool = nn.AvgPool1d(7, stride=1)
+        #self.fc = nn.Linear(512 * block.expansion,num_classes,bias = True)
         self.sig = torch.nn.Sigmoid()
 
         for m in self.modules():
@@ -137,21 +129,21 @@ class GuanResNet50_AG(torch.nn.Module):
         x = self.maxpool(x)
 
         x1  = self.layer1(x)
-        ag1 = AttentionGate(x,x1)
         x2  = self.layer2(x1)
-        ag2 = AttentionGate(x1,x2)
-        x3  = self.layer3(x1,x2)
+        x3  = self.layer3(x2)
         ag3 = AttentionGate(x2,x3)
         x4  = self.layer4(x3)
         ag4 = AttentionGate(x3,x4)
 
-        aggre = ShallowAggregation(x4,ag4)
-        aggre = ShallowAggregation(aggre,ag3)
-        aggre = ShallowAggregation(aggre,ag2)
-        aggre = ShallowAggregation(aggre,ag1)
+        aggre1 = x4.view(x4.numel())
+        aggre2 = ag3.view(ag3.numel())
+        aggre3 = ag4.view(ag4.numel())
 
-        aggre = self.avgpool(aggre)
-        aggre = aggre.view(aggre.size(0), -1)
-        output = self.sig(self.fc(aggre))
+        aggre = torch.cat((aggre1,aggre2,aggre3),0)
+
+        #aggre = self.avgpool(aggre)
+        #aggre = aggre.view(aggre.size(0), -1)
+        fc = nn.Linear(aggre.size(0),14,bias=True)
+        output = self.sig(fc(aggre))
 
         return output
