@@ -83,7 +83,7 @@ class RunModel(object):
                 loss.backward()
                 self.optimizer.step()
 
-                batch_time = time() - batch_start
+                batch_time = round(time() - batch_start, 4)
                 self.reporting.update('train_loss', loss)
                 self.reporting.update('batch_time', batch_time)
                 del loss
