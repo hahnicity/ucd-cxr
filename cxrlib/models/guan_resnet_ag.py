@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import math
+import torch
 
 class AttentionGate(nn.Module):
     def __init__(self, feature_channels, gate_channels, hidden_channels):
@@ -80,7 +81,7 @@ class Bottleneck(nn.Module):
         return out
 
 class GuanResNet50_AG(torch.nn.Module):
-    def __init__(self, block, layers, num_classes=14):
+    def __init__(self,block = Bottleneck, num_classes=14):
         self.inplanes = 64
         super(GuanResNet50_AG, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,

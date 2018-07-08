@@ -4,12 +4,12 @@ from torchvision.transforms import Compose, Normalize, Resize, ToTensor
 from torch.optim import SGD
 from torch.nn import BCELoss
 
-from cxrlib.models import GuanResNet50_AG
+from cxrlib.models import guan_resnet_ag
 from cxrlib.read_data import ChestXrayDataSet
 from cxrlib.results import compute_AUCs
 
 # Run modified version of resnet50 on GPU
-model = GuanResNet50_AG().cuda()
+model = guan_resnet_ag.GuanResNet50_AG().cuda()
 # Ensure that we can run the model on multiple GPUs
 model = torch.nn.DataParallel(model)
 model.train()

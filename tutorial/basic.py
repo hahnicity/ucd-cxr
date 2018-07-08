@@ -11,7 +11,7 @@ model = resnet50().cpu()
 model.fc = torch.nn.Linear(2048, 1)
 
 # number of epochs to run our model for
-n_eps = 5
+n_eps = 1
 
 # Loss function to compute gradients in backpropagation
 criterion = MSELoss()
@@ -28,7 +28,7 @@ dataset = RandomDataset(transform=Compose([normalize]))
 
 # DataLoader is a wrapping class that ensures we can process our data in mini-batches
 loader = torch.utils.data.DataLoader(dataset, batch_size=16)
-
+print("Training Start:")
 # Run for a pre-specified number of epochs
 for ep in range(n_eps):
     # Iterate over each mini-batch
@@ -50,4 +50,6 @@ for ep in range(n_eps):
 
         # Update model parameters
         optimizer.step()
+
+        print("updating network")
     print("end epoch {}".format(ep))
