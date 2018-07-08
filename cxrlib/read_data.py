@@ -13,6 +13,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 from cxrlib.constants import CXR14_LA_NORM, CXR14_RGB_NORM, IMAGENET_NORM
+from cxrlib import transforms as cxr_transforms
 
 
 class ChestXrayDataSet(Dataset):
@@ -57,10 +58,6 @@ class ChestXrayDataSet(Dataset):
         if self.transform and not self.is_preprocessed:
             image = Image.open(image_name).convert(self.convert_to)
             image = self.transform(image)
-            # If we're converting to grayscale and there's a fourth channel
-            # that we don't want, then remove it
-            if image.size(0) == 2 and self.convert_to == 'LA':
-                image = image[0].view(1, image.size(1), image.size(2))
         else:
             image = torch.load(image_name)
         return image, torch.FloatTensor(label)
@@ -90,6 +87,56 @@ class RandomDataset(Dataset):
         return len(self.data)
 
 
+def get_openi_loaders(images_path, train_labels_path, test_labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14', is_preprocessed=False):
+    """
+    Get data loaders for OpenI dataset. Since OpenI is significantly smaller than
+    CXR14 we perform some transforms to boost the amount of data that we have.
+
+    :param images_path: path to directory where all images are located
+    :param train_labels_path: full path to train labels
+    :param test_labels_path: full path to test labels
+    :param batch_size: size of mini-batches for train and test sets
+    :param num_workers: number of cpu workers to use when loading data
+    :param convert_to: convert images to RGB or LA (for grayscale)
+    :param norms: the dataset normalization standard we want to use. Accepts cxr14 and imagenet
+    :param is_preprocessed: is the dataset preprocessed? Does it need transforms?
+    """
+    if norms == 'cxr14' and convert_to == 'RGB':
+        norms = CXR14_RGB_NORM
+        train_transforms, test_transforms = cxr_transforms.openi_rgb_transforms(norms)
+    elif norms == 'cxr14' and convert_to == 'LA':
+        norms = CXR14_LA_NORM
+        train_transforms, test_transforms = cxr_transforms.openi_grayscale_transforms(norms)
+    elif norms == 'imagenet':
+        norms = IMAGENET_NORM
+        train_transforms, test_transforms = cxr_transforms.openi_rgb_transforms(norms)
+    train_dataset = ChestXrayDataSet(
+        data_dir=images_path,
+        image_list_file=train_labels_path,
+        transform=train_transforms,
+        convert_to=convert_to,
+        is_preprocessed=is_preprocessed,
+    )
+    train_loader = torch.utils.data.DataLoader(
+        dataset=train_dataset, batch_size=batch_size,
+        shuffle=False, num_workers=num_workers, pin_memory=True
+    )
+    # XXX in future allow option for no test dataset so that we can do pure
+    # pretraining
+    test_dataset = ChestXrayDataSet(
+        data_dir=images_path,
+        image_list_file=test_labels_path,
+        transform=test_transforms,
+        convert_to=convert_to,
+        is_preprocessed=is_preprocessed,
+    )
+    test_loader = torch.utils.data.DataLoader(
+        dataset=test_dataset, batch_size=batch_size,
+        shuffle=False, num_workers=num_workers, pin_memory=True
+    )
+    return train_loader, test_loader
+
+
 def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14', is_preprocessed=False):
     """
     Get data loaders for Guan method. For initial prototyping these data loaders can
@@ -106,22 +153,18 @@ def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiproc
     """
     if norms == 'cxr14' and convert_to == 'RGB':
         norms = CXR14_RGB_NORM
+        train_transforms, test_transforms = cxr_transforms.guan_rgb_transforms(norms)
     elif norms == 'cxr14' and convert_to == 'LA':
         norms = CXR14_LA_NORM
+        train_transforms, test_transforms = cxr_transforms.guan_grayscale_transforms(norms)
     elif norms == 'imagenet':
         norms = IMAGENET_NORM
-    normalize = transforms.Normalize(*norms)
-    transformations = transforms.Compose([
-        transforms.Resize(256),
-        transforms.RandomResizedCrop(224),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        normalize,
-    ])
+        train_transforms, test_transforms = cxr_transforms.guan_rgb_transforms(norms)
+
     train_dataset = ChestXrayDataSet(
         data_dir=images_path,
         image_list_file=os.path.join(labels_path, "train_val_list.processed"),
-        transform=transformations,
+        transform=train_transforms,
         convert_to=convert_to,
         is_preprocessed=is_preprocessed,
     )
@@ -129,16 +172,10 @@ def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiproc
         dataset=train_dataset, batch_size=batch_size,
         shuffle=False, num_workers=num_workers, pin_memory=True
     )
-    transformations = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        normalize,
-    ])
     test_dataset = ChestXrayDataSet(
         data_dir=images_path,
         image_list_file=os.path.join(labels_path, "test_list.processed"),
-        transform=transformations,
+        transform=test_transforms,
         convert_to=convert_to,
         is_preprocessed=is_preprocessed,
     )

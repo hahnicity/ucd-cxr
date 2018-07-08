@@ -37,6 +37,7 @@ class RunModel(object):
         self.lr_scheduler = lr_scheduler
         self.criterion = criterion
         self.reporting = reporting
+        self.using_multi_crop = False
         self.cuda_wrapper = lambda x: x.cuda() if use_cuda else x
         self.cuda_async_wrapper = lambda x: x.cuda(non_blocking=True) if use_cuda else x
 
@@ -60,15 +61,29 @@ class RunModel(object):
                 target = self.cuda_async_wrapper(target)
                 inp = self.cuda_async_wrapper(inp)
                 target = torch.autograd.Variable(target)
+                # If we are performing multi-cropping squash the crops
+                # into the batch we are using
+                if inp.ndimension() == 5:
+                    self.using_multi_crop = True
+                    bs, crops, c, h, w = inp.size()
+                    inp = inp.view(-1, c, h, w)
                 inp = torch.autograd.Variable(inp)
                 output = self.model(inp)
+                # XXX here's a decent question, if we are performing
+                # multi-crop, should we compute loss as a function
+                # of the average of all the crops, or a function
+                # of each individual crop?
+                #
+                # maybe for now just try as an average.
+                if self.using_multi_crop:
+                    output = output.view(bs, crops, -1).mean(1)
 
                 self.optimizer.zero_grad()
                 loss = self.criterion(output, target)
                 loss.backward()
                 self.optimizer.step()
 
-                batch_time = time() - batch_start
+                batch_time = round(time() - batch_start, 4)
                 self.reporting.update('train_loss', loss)
                 self.reporting.update('batch_time', batch_time)
                 del loss
