@@ -6,7 +6,7 @@ import torch
 class AttentionGate(nn.Module):
     def __init__(self, feature_channels, gate_channels, hidden_channels):
         super(AttentionGate, self).__init__()
-        self.Wx = nn.Conv3d(
+        self.Wx = nn.Conv2d(
             in_channels=feature_channels,
             out_channels=hidden_channels,
             kernel_size=1,
@@ -14,7 +14,7 @@ class AttentionGate(nn.Module):
             padding=0,
             bias=False)
 
-        self.Wg = nn.Conv3d(
+        self.Wg = nn.Conv2d(
             in_channels=gate_channels,
             out_channels=hidden_channels,
             kernel_size=1,
@@ -22,7 +22,7 @@ class AttentionGate(nn.Module):
             padding=0,
             bias=True)
 
-        self.psi = nn.Conv3d(
+        self.psi = nn.Conv2d(
             in_channels=hidden_channels,
             out_channels=1,
             kernel_size=1,
@@ -33,10 +33,11 @@ class AttentionGate(nn.Module):
 
     def forward(self,feature,attention):
         x = self.Wx(feature)
-        g = F.upsample(self.Wg(attention),mode='trilinear',size=x.size()[2:])
+        g = F.upsample(self.Wg(attention),mode='bilinear',size=x.size()[2:])
         q_att = F.sigmoid(self.psi(F.relu(x + g)))
-        alpha = F.upsample(q_att,mode='trilinear',size=feature.size()[2:0])
+        alpha = F.upsample(q_att,mode='bilinear',size=feature.size()[2:])
         output = alpha.expand_as(feature) * feature
+        # Also leaving off Wy, but it doesn't seem to be used frequently.
         return output
 
 
@@ -93,7 +94,9 @@ class GuanResNet50_AG(torch.nn.Module):
         self.layer2 = self._make_layer(block, 128, 4, stride=2)
         self.layer3 = self._make_layer(block, 256, 6, stride=2)
         self.layer4 = self._make_layer(block, 512, 3, stride=2)
-        #self.avgpool = nn.AvgPool1d(7, stride=1)
+        self.ag3 = AttentionGate(128*block.expansion, 512*block.expansion, 128*block.expansion)
+        self.ag4 = AttentionGate(256*block.expansion, 512*block.expansion, 256*block.expansion)
+        self.avgpool = nn.AvgPool2d(7, stride=1)
         #self.fc = nn.Linear(512 * block.expansion,num_classes,bias = True)
         self.sig = torch.nn.Sigmoid()
 
@@ -132,15 +135,13 @@ class GuanResNet50_AG(torch.nn.Module):
         x1  = self.layer1(x)
         x2  = self.layer2(x1)
         x3  = self.layer3(x2)
-        ag3 = AttentionGate(x2,x3)
         x4  = self.layer4(x3)
-        ag4 = AttentionGate(x3,x4)
+        x4 = self.avgpool(x4)
+        aggre1 = x4.view(-1, x4.size(1))
+        aggre2 = self.ag3(x2, x4)
+        aggre3 = self.ag4(x3, x4)
 
-        aggre1 = x4.view(x4.numel())
-        aggre2 = ag3.view(ag3.numel())
-        aggre3 = ag4.view(ag4.numel())
-
-        aggre = torch.cat((aggre1,aggre2,aggre3),0)
+        aggre = torch.cat((aggre1,aggre2.view(-1, aggre2.size(1)),aggre3.view(-1, aggre3.size(1))),0)
 
         #aggre = self.avgpool(aggre)
         #aggre = aggre.view(aggre.size(0), -1)

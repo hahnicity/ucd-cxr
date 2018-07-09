@@ -25,6 +25,7 @@ def main():
     parser.add_argument('--device', default='cuda', choices=['cpu', 'cuda'])
     parser.add_argument('--results-path', default=os.path.join(os.path.dirname(__file__), 'results'))
     parser.add_argument('--print-progress', action='store_true')
+    parser.add_argument('--load-openi-model', help='specify path to stored openi model')
     # training options
     parser.add_argument('--epochs', default=50, type=int)
     parser.add_argument('--batch-size', default=32, type=int)
@@ -32,18 +33,24 @@ def main():
     # model hyperparameters
     args = parser.parse_args()
 
-    model = resnet50(num_classes=14)
-    if args.weight_init == 'kaiming':
-        model.apply(kaiming_init)
-    elif args.weight_init == 'xavier':
-        model.apply(xavier_init)
+    cuda_wrapper = lambda x: x.cuda() if args.device == 'cuda' else x
+    if not args.load_openi_model:
+        model = resnet50(num_classes=14)
+        if args.weight_init == 'kaiming':
+            model.apply(kaiming_init)
+        elif args.weight_init == 'xavier':
+            model.apply(xavier_init)
+        model = cuda_wrapper(torch.nn.DataParallel(model))
+    else:
+        model = torch.load(args.load_openi_model)
+        model.module.fc = torch.nn.Linear(model.module.fc.in_features, 14)
+        model = cuda_wrapper(model)
+
     if "preprocessed" in args.images_path:
         is_preprocessed = True
     else:
         is_preprocessed = False
     train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, convert_to='LA', is_preprocessed=is_preprocessed)
-    cuda_wrapper = lambda x: x.cuda() if args.device == 'cuda' else x
-    model = cuda_wrapper(torch.nn.DataParallel(model))
     optimizer = torch.optim.SGD(model.parameters(), lr=.01, momentum=.9, weight_decay=1e-4)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 20)
     criterion = torch.nn.BCEWithLogitsLoss()

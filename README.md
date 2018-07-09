@@ -19,8 +19,8 @@ Next download the files `train_val_list.txt`, `test_list.txt`, and `Data_Entry_2
 The first set of preprocessing creates a new file that will have both the image names and the labels associated with them.
 
     cd cxrlib
-    python label_preprocessing.py /path/to/Data_Entry_2017.csv /path/to/train_val_list.txt
-    python label_preprocessing.py /path/to/Data_Entry_2017.csv /path/to/test_list.txt
+    python label_preprocessing.py train_test_preproc /path/to/Data_Entry_2017.csv /path/to/train_val_list.txt
+    python label_preprocessing.py train_test_preproc /path/to/Data_Entry_2017.csv /path/to/test_list.txt
 
 After this is complete you will have a file that reflects both the image and the label associated with it. This can be used
 in subsequent preprocessing or in PyTorch itself.

@@ -11,7 +11,7 @@ from cxrlib.results import compute_AUCs
 # Run modified version of resnet50 on GPU
 model = guan_resnet_ag.GuanResNet50_AG().cuda()
 # Ensure that we can run the model on multiple GPUs
-model = torch.nn.DataParallel(model)
+#model = torch.nn.DataParallel(model)
 model.train()
 
 n_eps = 1
@@ -61,6 +61,7 @@ for inp, target in loader:
     target = torch.autograd.Variable(target).cuda()
     inp = torch.autograd.Variable(inp).cuda()
     out = model(inp)
+    import IPython; IPython.embed()
     # Add results of the model's output to the aggregated prediction vector, and also add aggregated
     # ground truth information as well
     pred = torch.cat((pred, out.data), 0)
