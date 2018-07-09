@@ -127,6 +127,8 @@ class GuanResNet50_AG(torch.nn.Module):
 
 
     def forward(self, x):
+        #print(x.size())
+        batch_size = x.size()[0]
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -136,16 +138,22 @@ class GuanResNet50_AG(torch.nn.Module):
         x2  = self.layer2(x1)
         x3  = self.layer3(x2)
         x4  = self.layer4(x3)
-        x4 = self.avgpool(x4)
-        aggre1 = x4.view(-1, x4.size(1))
-        aggre2 = self.ag3(x2, x4)
-        aggre3 = self.ag4(x3, x4)
+        #print(x3.size())
+        #print(x4.size())
+        gate= AttentionGate(1024,2048,16).cuda()
+        ag = gate(x3,x4)
+        #print(ag.size())
+        #print(x4.size())
+        aggre1 = x4.view(batch_size,-1)
+        aggre2 = ag.view(batch_size,-1)
 
-        aggre = torch.cat((aggre1,aggre2.view(-1, aggre2.size(1)),aggre3.view(-1, aggre3.size(1))),0)
+        aggre = torch.cat((aggre1,aggre2),1)
 
         #aggre = self.avgpool(aggre)
         #aggre = aggre.view(aggre.size(0), -1)
-        fc = nn.Linear(aggre.size(0),14,bias=True)
+        #print(aggre.size())
+        fc = nn.Linear(aggre.size(1),14,bias=True).cuda()
         output = self.sig(fc(aggre))
+        #print(output.size())
 
         return output
