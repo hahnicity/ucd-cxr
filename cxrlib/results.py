@@ -60,7 +60,9 @@ class Reporting(SavedObjects):
         super(Reporting, self).__init__(file_dir)
         self.meters = {
             "train_loss": Meter('train_loss'),
+            'validation_loss': Meter('validation_loss'),
             "batch_time": Meter('batch_time'),
+            'validation_auc': Meter('validation_auc'),
             'test_auc': Meter('test_auc'),
         }
         for name, meter in self.meters.items():
@@ -74,10 +76,20 @@ class Reporting(SavedObjects):
 
     def new_meter(self, name):
         """
+        Create a new meter that will be registered to be saved
+
         :param name: meter name
         """
         self.meters[name] = Meter(name)
         self.register(self.meters[name])
+
+    def new_unsaved_meter(self, name):
+        """
+        Create a new meter that will not be saved
+
+        :param name: meter name
+        """
+        self.meters[name] = Meter(name)
 
     def update(self, meter, val):
         self.meters[meter].update(val)

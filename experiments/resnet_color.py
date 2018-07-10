@@ -12,9 +12,11 @@ from cxrlib.results import Reporting
 from cxrlib.run import RunModel
 
 
-class Resnet50GrayscaleRun(RunModel):
-    def post_epoch_actions(self):
-        self.lr_scheduler.step()
+class Resnet50RGBRun(RunModel):
+    def post_validation_actions(self):
+        epoch_loss = self.reporting.get_meter('validation_epoch_loss').values
+        mean_loss = epoch_loss.mean()
+        self.lr_scheduler.step(mean_loss)
 
 
 def main():
@@ -27,6 +29,7 @@ def main():
     parser.add_argument('--print-progress', action='store_true')
     parser.add_argument('--pretrained', action='store_true')
     parser.add_argument('--load-openi-model', help='specify path to stored openi model')
+    parser.add_argument('--no-validation', action='store_true')
     # training options
     parser.add_argument('--epochs', default=50, type=int)
     parser.add_argument('--batch-size', default=32, type=int)
@@ -51,13 +54,18 @@ def main():
         is_preprocessed = True
     else:
         is_preprocessed = False
-    train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, is_preprocessed=is_preprocessed)
+
+    if args.no_validation:
+        train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, is_preprocessed=is_preprocessed)
+    else:
+        train_loader, valid_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, is_preprocessed=is_preprocessed, get_validation_set=True)
+
     optimizer = torch.optim.SGD(model.parameters(), lr=.01, momentum=.9, weight_decay=1e-4)
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 20)
+    lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=5, mode='min')
     criterion = torch.nn.BCEWithLogitsLoss()
     reporting = Reporting(args.results_path)
     reporting.register(model, 'model', False)
-    runner = Resnet50GrayscaleRun(
+    runner = Resnet50RGBRun(
         args,
         model,
         train_loader,
@@ -66,10 +74,12 @@ def main():
         lr_scheduler,
         criterion,
         True if args.device == 'cuda' else False,
-        reporting
+        reporting,
+        validation_loader=valid_loader,
     )
     runner.train_multi_epoch(args.epochs)
     del train_loader
+    del valid_loader
     torch.cuda.empty_cache()
     runner.generic_test_epoch()
     reporting.save_all('resnet50-color')

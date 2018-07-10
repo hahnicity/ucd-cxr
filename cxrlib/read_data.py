@@ -60,7 +60,17 @@ class ChestXrayDataSet(Dataset):
             image = self.transform(image)
         else:
             image = torch.load(image_name)
-        return image, torch.FloatTensor(label)
+
+        # We're using multi-crop here
+        if image.ndimension() == 4:
+            ncrops = image.size(0)
+            labels = torch.FloatTensor([label])
+            for _ in range(ncrops-1):
+                labels = torch.cat((labels, torch.FloatTensor([label])), 0)
+            return image, labels
+        # We're not using multi-crop here
+        else:
+            return image, torch.FloatTensor(label)
 
     def __len__(self):
         return len(self.image_names)
@@ -87,13 +97,14 @@ class RandomDataset(Dataset):
         return len(self.data)
 
 
-def get_openi_loaders(images_path, train_labels_path, test_labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14', is_preprocessed=False):
+def get_openi_loaders(images_path, train_labels_path, valid_labels_path, test_labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14', is_preprocessed=False):
     """
     Get data loaders for OpenI dataset. Since OpenI is significantly smaller than
     CXR14 we perform some transforms to boost the amount of data that we have.
 
     :param images_path: path to directory where all images are located
     :param train_labels_path: full path to train labels
+    :param valid_labels_path: full path to validation labels
     :param test_labels_path: full path to test labels
     :param batch_size: size of mini-batches for train and test sets
     :param num_workers: number of cpu workers to use when loading data
@@ -121,6 +132,17 @@ def get_openi_loaders(images_path, train_labels_path, test_labels_path, batch_si
         dataset=train_dataset, batch_size=batch_size,
         shuffle=False, num_workers=num_workers, pin_memory=True
     )
+    valid_dataset = ChestXrayDataSet(
+        data_dir=images_path,
+        image_list_file=valid_labels_path,
+        transform=train_transforms,
+        convert_to=convert_to,
+        is_preprocessed=is_preprocessed,
+    )
+    valid_loader = torch.utils.data.DataLoader(
+        dataset=valid_dataset, batch_size=batch_size,
+        shuffle=False, num_workers=num_workers, pin_memory=True
+    )
     # XXX in future allow option for no test dataset so that we can do pure
     # pretraining
     test_dataset = ChestXrayDataSet(
@@ -134,10 +156,10 @@ def get_openi_loaders(images_path, train_labels_path, test_labels_path, batch_si
         dataset=test_dataset, batch_size=batch_size,
         shuffle=False, num_workers=num_workers, pin_memory=True
     )
-    return train_loader, test_loader
+    return train_loader, valid_loader, test_loader
 
 
-def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14', is_preprocessed=False):
+def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14', is_preprocessed=False, get_validation_set=False):
     """
     Get data loaders for Guan method. For initial prototyping these data loaders can
     be useful. However, there are still improvements that can be made and it should not
@@ -150,6 +172,7 @@ def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiproc
     :param convert_to: convert images to RGB or LA (for grayscale)
     :param norms: the dataset normalization standard we want to use. Accepts cxr14 and imagenet
     :param is_preprocessed: is the dataset preprocessed? Does it need transforms?
+    :param get_validation_set: Return the validation loader or no?
     """
     if norms == 'cxr14' and convert_to == 'RGB':
         norms = CXR14_RGB_NORM
@@ -161,9 +184,14 @@ def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiproc
         norms = IMAGENET_NORM
         train_transforms, test_transforms = cxr_transforms.guan_rgb_transforms(norms)
 
+    if get_validation_set:
+        train_labels_path = os.path.join(labels_path, 'train_list.processed')
+    else:
+        train_labels_path = os.path.join(labels_path, "train_val_list.processed")
+
     train_dataset = ChestXrayDataSet(
         data_dir=images_path,
-        image_list_file=os.path.join(labels_path, "train_val_list.processed"),
+        image_list_file=train_labels_path,
         transform=train_transforms,
         convert_to=convert_to,
         is_preprocessed=is_preprocessed,
@@ -183,4 +211,18 @@ def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiproc
         dataset=test_dataset, batch_size=batch_size,
         shuffle=False, num_workers=num_workers, pin_memory=True
     )
-    return train_loader, test_loader
+    if get_validation_set:
+        valid_dataset = ChestXrayDataSet(
+            data_dir=images_path,
+            image_list_file=os.path.join(labels_path, 'val_list.processed'),
+            transform=train_transforms,
+            convert_to=convert_to,
+            is_preprocessed=is_preprocessed,
+        )
+        valid_loader = torch.utils.data.DataLoader(
+            dataset=valid_dataset, batch_size=batch_size,
+            shuffle=False, num_workers=num_workers, pin_memory=True
+        )
+        return train_loader, valid_loader, test_loader
+    else:
+        return train_loader, test_loader
