@@ -128,6 +128,9 @@ class RunModel(object):
                     gt = torch.cat((gt, target), 0)
         AUROCs = compute_AUCs(gt, pred)
         AUROC_avg = np.array(AUROCs).mean()
+        if self.print_progress:
+            print("")
+            print("Validation AUC: {}".format(AUROC_avg))
         self.reporting.update('validation_auc', AUROC_avg)
         self.post_validation_actions()
 
@@ -156,13 +159,12 @@ class RunModel(object):
                     pred = torch.cat((pred, output.data), 0)
                     gt = torch.cat((gt, target), 0)
 
-                if self.print_progress:
-                    print("")
-                    print('Eval Test Batch: {}/{}\r'.format(i, len(self.test_loader)), end="")
-
         AUROCs = compute_AUCs(gt, pred)
         AUROC_avg = np.array(AUROCs).mean()
         self.reporting.update('test_auc', AUROC_avg)
+        if self.print_progress:
+            print("")
+            print("Test AUC: {}".format(AUROC_avg))
 
     def pre_batch_actions(self):
         """

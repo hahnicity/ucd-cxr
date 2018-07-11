@@ -30,6 +30,7 @@ def main():
     parser.add_argument('--results-path', default=os.path.join(os.path.dirname(__file__), 'results'))
     parser.add_argument('--print-progress', action='store_true')
     parser.add_argument('--num-workers', default=multiprocessing.cpu_count(), type=int)
+    parser.add_argument('--pretrained', action='store_true')
     # training options
     parser.add_argument('--epochs', default=50, type=int)
     parser.add_argument('--batch-size', default=16, type=int)
@@ -37,7 +38,11 @@ def main():
     # model hyperparameters
     args = parser.parse_args()
 
-    model = resnet50(pretrained=False, num_classes=20)
+    if args.pretrained:
+        model = resnet50(pretrained=True)
+        model.fc = torch.nn.Linear(model.fc.in_features, 20)
+    else:
+        model = resnet50(pretrained=False, num_classes=20)
     if args.weight_init == 'kaiming':
         model.apply(kaiming_init)
     elif args.weight_init == 'xavier':
@@ -71,7 +76,7 @@ def main():
     del valid_loader
     torch.cuda.empty_cache()
     runner.generic_test_epoch()
-    reporting.save_all('openi-resnet50-rgb')
+    reporting.save_all('openi-resnet50-rgb-pretrained-{}'.format(args.pretrained))
 
 
 if __name__ == "__main__":

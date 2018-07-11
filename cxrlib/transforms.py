@@ -34,7 +34,7 @@ def guan_rgb_transforms(norms):
     test_transforms = transforms.Compose([
         transforms.Resize(256),
         transforms.CenterCrop(224),
-        ToGrayscaleTensor(),
+        transforms.ToTensor(),
         normalize,
     ])
     return train_transforms, test_transforms
@@ -52,7 +52,7 @@ def guan_grayscale_transforms(norms):
     test_transforms = transforms.Compose([
         transforms.Resize(256),
         transforms.CenterCrop(224),
-        transforms.ToTensor(),
+        ToGrayscaleTensor(),
         normalize,
     ])
     return train_transforms, test_transforms

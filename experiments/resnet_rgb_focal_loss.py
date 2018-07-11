@@ -7,6 +7,7 @@ from torchvision import transforms
 from torchvision.models.resnet import resnet50
 
 from cxrlib.init import kaiming_init, xavier_init
+from cxrlib.loss import FocalLossWithLogits
 from cxrlib.read_data import get_guan_loaders
 from cxrlib.results import Reporting
 from cxrlib.run import RunModel
@@ -66,7 +67,7 @@ def main():
 
     optimizer = torch.optim.SGD(model.parameters(), lr=.01, momentum=.9, weight_decay=1e-4)
     lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=5, mode='min')
-    criterion = torch.nn.BCEWithLogitsLoss()
+    criterion = FocalLossWithLogits()
     reporting = Reporting(args.results_path)
     reporting.register(model, 'model', False)
     runner = Resnet50RGBRun(
@@ -86,7 +87,7 @@ def main():
     del valid_loader
     torch.cuda.empty_cache()
     runner.generic_test_epoch()
-    reporting.save_all('resnet50-color')
+    reporting.save_all('resnet50-rgb-focal-loss')
 
 
 if __name__ == "__main__":
