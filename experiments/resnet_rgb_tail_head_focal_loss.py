@@ -7,13 +7,20 @@ from torchvision import transforms
 from torchvision.models.resnet import resnet50
 
 from cxrlib.init import kaiming_init, xavier_init
-from cxrlib.loss import FocalLoss
+from cxrlib.loss import TailAndHeadFocalLoss
 from cxrlib.read_data import get_guan_loaders
 from cxrlib.results import Reporting
 from cxrlib.run import RunModel
 
 
 class Resnet50RGBRun(RunModel):
+    def pre_train_actions(self):
+        self.reporting.new_meter('loss_rate')
+
+    def post_epoch_actions(self):
+        lr = self.optimizer.state_dict()['param_groups'][0]['lr']
+        self.reporting.update('loss_rate', lr)
+
     def post_validation_actions(self):
         epoch_loss = self.reporting.get_meter('validation_epoch_loss').values
         mean_loss = epoch_loss.mean()
@@ -36,8 +43,8 @@ def main():
     parser.add_argument('--batch-size', default=32, type=int)
     parser.add_argument('--weight-init', choices=['xavier', 'kaiming'], default='xavier')
     # model hyperparameters
-    parser.add_argument('--gamma', default=2., type=float)
-    parser.add_argument('--alpha', default=.25, type=float)
+    parser.add_argument('--beta', type=float, default=.1)
+    parser.add_argument('--gamma', type=float, default=.1)
     args = parser.parse_args()
 
     cuda_wrapper = lambda x: x.cuda() if args.device == 'cuda' else x
@@ -69,7 +76,7 @@ def main():
 
     optimizer = torch.optim.SGD(model.parameters(), lr=.01, momentum=.9, weight_decay=1e-4)
     lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=5, mode='min')
-    criterion = FocalLoss(gamma=args.gamma, alpha=args.alpha)
+    criterion = TailAndHeadFocalLoss(args.beta, args.gamma)
     reporting = Reporting(args.results_path)
     reporting.register(model, 'model', False)
     runner = Resnet50RGBRun(
@@ -89,7 +96,7 @@ def main():
     del valid_loader
     torch.cuda.empty_cache()
     runner.generic_test_epoch()
-    reporting.save_all('resnet50-rgb-focal-loss')
+    reporting.save_all('resnet50-rgb-tailhead-focal-loss'.format(args.beta))
 
 
 if __name__ == "__main__":

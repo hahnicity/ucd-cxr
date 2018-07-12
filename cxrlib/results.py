@@ -76,12 +76,12 @@ class Reporting(SavedObjects):
 
     def new_meter(self, name):
         """
-        Create a new meter that will be registered to be saved
+        Create a new quantitative meter that will be registered to be saved
 
         :param name: meter name
         """
         self.meters[name] = Meter(name)
-        self.register(self.meters[name])
+        self.register(self.meters[name], name, False)
 
     def new_unsaved_meter(self, name):
         """

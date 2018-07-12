@@ -48,6 +48,7 @@ class RunModel(object):
 
         :param epochs: number of epochs to train for
         """
+        self.pre_train_actions()
         for ep in range(epochs):
             self.generic_train_epoch(ep+1)
             if self.validation_loader:
@@ -165,6 +166,12 @@ class RunModel(object):
         if self.print_progress:
             print("")
             print("Test AUC: {}".format(AUROC_avg))
+
+    def pre_train_actions(self):
+        """
+        Stub methods that can be utilized for customizable actions
+        """
+        pass
 
     def pre_batch_actions(self):
         """

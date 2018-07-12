@@ -38,7 +38,7 @@ def main():
     model = cuda_wrapper(torch.nn.DataParallel(model))
     optimizer = torch.optim.SGD(model.parameters(), lr=.01, momentum=.9, weight_decay=1e-4)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 20)
-    criterion = FocalLoss()
+    criterion = FocalLoss(.5)
     reporting = Reporting(args.results_path)
     reporting.register(model, 'model', False)
     runner = GuanRun(
