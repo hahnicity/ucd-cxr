@@ -92,6 +92,7 @@ class RunModel(object):
 
                 self.post_batch_actions()
 
+            self.reporting.update('loss_rate', self.optimizer.state_dict()['param_groups'][0]['lr'])
             self.post_epoch_actions()
 
     def generic_validation_epoch(self):
@@ -197,3 +198,22 @@ class RunModel(object):
         evaluated
         """
         pass
+
+
+class RunModelWithValidationLRScheduler(RunModel):
+    """
+    This assumes you have a validation set and you are using the
+    ReduceLROnPlateau loss scheduler.
+    """
+    def post_validation_actions(self):
+        epoch_loss = self.reporting.get_meter('validation_epoch_loss').values
+        mean_loss = epoch_loss.mean()
+        self.lr_scheduler.step(mean_loss)
+
+
+class RunModelWithTestAUCReporting(RunModel):
+    """
+    Run your model and your testing set at the end of each epoch
+    """
+    def post_epoch_actions(self):
+        self.generic_test_epoch()

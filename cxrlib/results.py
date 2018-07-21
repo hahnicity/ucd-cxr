@@ -61,6 +61,7 @@ class Reporting(SavedObjects):
         self.meters = {
             "train_loss": Meter('train_loss'),
             'validation_loss': Meter('validation_loss'),
+            'loss_rate': Meter('loss_rate'),
             "batch_time": Meter('batch_time'),
             'validation_auc': Meter('validation_auc'),
             'test_auc': Meter('test_auc'),
