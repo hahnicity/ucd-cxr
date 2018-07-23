@@ -1,6 +1,7 @@
 import argparse
 import multiprocessing
 import os
+import sys
 
 import torch
 from torchvision import transforms
@@ -27,19 +28,11 @@ def main():
     # model hyperparameters
     args = parser.parse_args()
 
-    conv1_init = lambda m: student_t_init(m, v=1000)
-    bottleneck1_init = lambda m: student_t_init(m, v=20)
-    bottleneck2_init = lambda m: student_t_init(m, v=15)
-    bottleneck3_init = lambda m: student_t_init(m, v=10)
-    bottleneck4_init = lambda m: student_t_init(m, v=5)
+    initializer = lambda m: student_t_init(m, v=sys.maxsize)
 
     cuda_wrapper = lambda x: x.cuda() if args.device == 'cuda' else x
     model = resnet50(pretrained=False, num_classes=14)
-    model.conv1.apply(conv1_init)
-    model.layer1.apply(bottleneck1_init)
-    model.layer2.apply(bottleneck2_init)
-    model.layer3.apply(bottleneck3_init)
-    model.layer4.apply(bottleneck4_init)
+    model.apply(initializer)
     model = cuda_wrapper(torch.nn.DataParallel(model))
 
     if "preprocessed" in args.images_path:
@@ -53,7 +46,7 @@ def main():
     else:
         train_loader, valid_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, is_preprocessed=is_preprocessed, get_validation_set=True)
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=.005, momentum=.9, weight_decay=1e-4)
+    optimizer = torch.optim.SGD(model.parameters(), lr=.1, momentum=.9, weight_decay=1e-4, nesterov=True)
     lr_scheduler = None
     criterion = torch.nn.BCEWithLogitsLoss()
     reporting = Reporting(args.results_path)
