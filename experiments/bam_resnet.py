@@ -30,15 +30,9 @@ def main():
     args = parser.parse_args()
 
     cuda_wrapper = lambda x: x.cuda() if args.device == 'cuda' else x
-    if not args.load_openi_model and not args.pretrained:
-        model = resnet50ish(args.reduction_coef, args.dilation)
-        model = cuda_wrapper(torch.nn.DataParallel(model))
-    elif args.pretrained:
-        # XXX
-        pass
-    else:
-        # XXX
-        model = cuda_wrapper(model)
+    # model is pretrained by default
+    model = resnet50ish(args.reduction_coef, args.dilation)
+    model = cuda_wrapper(torch.nn.DataParallel(model))
 
     if "preprocessed" in args.images_path:
         is_preprocessed = True
@@ -50,7 +44,7 @@ def main():
     else:
         train_loader, valid_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, is_preprocessed=is_preprocessed, get_validation_set=True)
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=.01, momentum=.9, weight_decay=1e-4, nesterov=True)
+    optimizer = torch.optim.SGD(model.parameters(), lr=.001, momentum=.9, weight_decay=1e-4, nesterov=True)
     criterion = torch.nn.BCEWithLogitsLoss()
     reporting = Reporting(args.results_path)
     reporting.register(model, 'model', False)
