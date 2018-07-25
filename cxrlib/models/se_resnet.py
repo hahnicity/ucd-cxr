@@ -84,7 +84,7 @@ class SEBottleneck(nn.Module):
         return out
 
 
-def se_resnet50(num_classes):
+def se_resnet50(num_classes, **kwargs):
     """Constructs a ResNet-50 model.
 
     Args:
