@@ -65,23 +65,33 @@ class RunModel(object):
                 target = self.cuda_async_wrapper(target)
                 inp = self.cuda_async_wrapper(inp)
                 target = torch.autograd.Variable(target)
-                # If we are performing multi-cropping squash the crops
-                # into the batch we are using
+                # If we are performing multi-cropping then we will preserve batch
+                # size by iterating on each crop individually. This does have the
+                # possible effect of overtraining tho. Dunno how to get around this
+                # and still not run out of memory.
                 if inp.ndimension() == 5:
                     bs, crops, c, h, w = inp.size()
-                    inp = inp.view(-1, c, h, w)
-                    bs, crops, labs = target.size()
-                    target = target.view(-1, labs)
-                inp = torch.autograd.Variable(inp)
-                output = self.model(inp)
+                    for k in range(crops):
+                        crop_inp = torch.autograd.Variable(inp[:,k,:,:,:])
+                        output = self.model(crop_inp)
+                        crop_target = target[:,k,:]
 
-                self.optimizer.zero_grad()
-                loss = self.criterion(output, target)
-                loss.backward()
-                self.optimizer.step()
+                        self.optimizer.zero_grad()
+                        loss = self.criterion(output, crop_target)
+                        loss.backward()
+                        self.optimizer.step()
+                        self.reporting.update('train_loss', loss)
+                else:
+                    inp = torch.autograd.Variable(inp)
+                    output = self.model(inp)
+
+                    self.optimizer.zero_grad()
+                    loss = self.criterion(output, target)
+                    loss.backward()
+                    self.optimizer.step()
+                    self.reporting.update('train_loss', loss)
 
                 batch_time = round(time() - batch_start, 4)
-                self.reporting.update('train_loss', loss)
                 self.reporting.update('batch_time', batch_time)
                 del loss
 
@@ -108,26 +118,40 @@ class RunModel(object):
                 target = self.cuda_async_wrapper(target)
                 inp = self.cuda_async_wrapper(inp)
                 target = torch.autograd.Variable(target)
-                # If we are performing multi-cropping squash the crops
-                # into the batch we are using
+
                 if inp.ndimension() == 5:
                     bs, crops, c, h, w = inp.size()
-                    inp = inp.view(-1, c, h, w)
-                    bs, crops, labs = target.size()
-                    target = target.view(-1, labs)
-                inp = torch.autograd.Variable(inp)
-                output = self.model(inp)
-                # XXX should I evaluate based on averaging AUC over all crops
-                # like we do in the testing phase??
-                loss = self.criterion(output, target)
-                self.reporting.update('validation_loss', loss)
-                self.reporting.update('validation_epoch_loss', loss)
-                if pred is None:
-                    pred = output.data
-                    gt = target
+                    for k in range(crops):
+                        crop_inp = torch.autograd.Variable(inp[:,k,:,:,:])
+                        output = self.model(crop_inp)
+                        crop_target = target[:,k,:]
+
+                        loss = self.criterion(output, crop_target)
+                        self.reporting.update('validation_loss', loss)
+                        self.reporting.update('validation_epoch_loss', loss)
+
+                        if pred is None:
+                            pred = output.data
+                            gt = crop_target
+                        else:
+                            pred = torch.cat((pred, output.data), 0)
+                            gt = torch.cat((gt, crop_target), 0)
                 else:
-                    pred = torch.cat((pred, output.data), 0)
-                    gt = torch.cat((gt, target), 0)
+                    inp = torch.autograd.Variable(inp)
+                    output = self.model(inp)
+                    # XXX should I evaluate based on averaging AUC over all crops
+                    # like we do in the testing phase??
+                    loss = self.criterion(output, target)
+                    self.reporting.update('validation_loss', loss)
+                    self.reporting.update('validation_epoch_loss', loss)
+
+                    if pred is None:
+                        pred = output.data
+                        gt = target
+                    else:
+                        pred = torch.cat((pred, output.data), 0)
+                        gt = torch.cat((gt, target), 0)
+
         AUROCs = compute_AUCs(gt, pred)
         AUROC_avg = np.array(AUROCs).mean()
         if self.print_progress:

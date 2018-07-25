@@ -97,6 +97,77 @@ class RandomDataset(Dataset):
         return len(self.data)
 
 
+def get_loaders(images_path,
+                labels_path,
+                batch_size,
+                num_workers,
+                convert_to,
+                norms,
+                train_transforms,
+                test_transforms,
+                is_preprocessed,
+                get_validation_set):
+    """
+    Get data loaders for CXR14
+
+    :param images_path: path to directory where all images are located
+    :param train_labels_path: full path to train labels
+    :param valid_labels_path: full path to validation labels
+    :param test_labels_path: full path to test labels
+    :param batch_size: size of mini-batches for train and test sets
+    :param num_workers: number of cpu workers to use when loading data
+    :param convert_to: convert images to RGB or LA (for grayscale)
+    :param norms: the dataset normalization standard we want to use. Accepts cxr14 and imagenet
+    :param train_transforms: Compose object with train transformations
+    :param test_transforms: Compose object with test transformations
+    :param is_preprocessed: is the dataset preprocessed? Does it need transforms?
+    :param get_validation_set: True/False if we want a validation set
+    """
+
+    if get_validation_set:
+        train_labels_path = os.path.join(labels_path, 'train_list.processed')
+    else:
+        train_labels_path = os.path.join(labels_path, "train_val_list.processed")
+
+    train_dataset = ChestXrayDataSet(
+        data_dir=images_path,
+        image_list_file=train_labels_path,
+        transform=train_transforms,
+        convert_to=convert_to,
+        is_preprocessed=is_preprocessed,
+    )
+    train_loader = torch.utils.data.DataLoader(
+        dataset=train_dataset, batch_size=batch_size,
+        shuffle=False, num_workers=num_workers, pin_memory=True
+    )
+    test_dataset = ChestXrayDataSet(
+        data_dir=images_path,
+        image_list_file=os.path.join(labels_path, "test_list.processed"),
+        transform=test_transforms,
+        convert_to=convert_to,
+        is_preprocessed=is_preprocessed,
+    )
+    test_loader = torch.utils.data.DataLoader(
+        dataset=test_dataset, batch_size=batch_size,
+        shuffle=False, num_workers=num_workers, pin_memory=True
+    )
+    if get_validation_set:
+        valid_dataset = ChestXrayDataSet(
+            data_dir=images_path,
+            image_list_file=os.path.join(labels_path, 'val_list.processed'),
+            transform=train_transforms,
+            convert_to=convert_to,
+            is_preprocessed=is_preprocessed,
+        )
+        valid_loader = torch.utils.data.DataLoader(
+            dataset=valid_dataset, batch_size=batch_size,
+            shuffle=False, num_workers=num_workers, pin_memory=True
+        )
+        return train_loader, valid_loader, test_loader
+    else:
+        return train_loader, test_loader
+
+
 def get_openi_loaders(images_path, train_labels_path, valid_labels_path, test_labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14', is_preprocessed=False):
     """
     Get data loaders for OpenI dataset. Since OpenI is significantly smaller than
@@ -183,46 +254,17 @@ def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiproc
     elif norms == 'imagenet':
         norms = IMAGENET_NORM
         train_transforms, test_transforms = cxr_transforms.guan_rgb_transforms(norms)
+    return get_loaders(images_path, labels_path, batch_size, num_workers, convert_to, norms, train_transforms, test_transforms, is_preprocessed, get_validation_set)
 
-    if get_validation_set:
-        train_labels_path = os.path.join(labels_path, 'train_list.processed')
-    else:
-        train_labels_path = os.path.join(labels_path, "train_val_list.processed")
 
-    train_dataset = ChestXrayDataSet(
-        data_dir=images_path,
-        image_list_file=train_labels_path,
-        transform=train_transforms,
-        convert_to=convert_to,
-        is_preprocessed=is_preprocessed,
-    )
-    train_loader = torch.utils.data.DataLoader(
-        dataset=train_dataset, batch_size=batch_size,
-        shuffle=False, num_workers=num_workers, pin_memory=True
-    )
-    test_dataset = ChestXrayDataSet(
-        data_dir=images_path,
-        image_list_file=os.path.join(labels_path, "test_list.processed"),
-        transform=test_transforms,
-        convert_to=convert_to,
-        is_preprocessed=is_preprocessed,
-    )
-    test_loader = torch.utils.data.DataLoader(
-        dataset=test_dataset, batch_size=batch_size,
-        shuffle=False, num_workers=num_workers, pin_memory=True
-    )
-    if get_validation_set:
-        valid_dataset = ChestXrayDataSet(
-            data_dir=images_path,
-            image_list_file=os.path.join(labels_path, 'val_list.processed'),
-            transform=train_transforms,
-            convert_to=convert_to,
-            is_preprocessed=is_preprocessed,
-        )
-        valid_loader = torch.utils.data.DataLoader(
-            dataset=valid_dataset, batch_size=batch_size,
-            shuffle=False, num_workers=num_workers, pin_memory=True
-        )
-        return train_loader, valid_loader, test_loader
-    else:
-        return train_loader, test_loader
+def get_five_crop_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14', is_preprocessed=False, get_validation_set=False):
+    if norms == 'cxr14' and convert_to == 'RGB':
+        norms = CXR14_RGB_NORM
+        train_transforms, test_transforms = cxr_transforms.five_crop_rgb_transforms(norms)
+    elif norms == 'cxr14' and convert_to == 'LA':
+        norms = CXR14_LA_NORM
+        train_transforms, test_transforms = cxr_transforms.five_crop_grayscale_transforms(norms)
+    elif norms == 'imagenet':
+        norms = IMAGENET_NORM
+        train_transforms, test_transforms = cxr_transforms.five_crop_rgb_transforms(norms)
+    return get_loaders(images_path, labels_path, batch_size, num_workers, convert_to, norms, train_transforms, test_transforms, is_preprocessed, get_validation_set)

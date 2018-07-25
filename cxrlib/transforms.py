@@ -98,3 +98,44 @@ def openi_rgb_transforms(norms):
         normalize,
     ])
     return train_transforms, test_transforms
+
+
+def five_crop_rgb_transforms(norms):
+    normalize = transforms.Normalize(*norms)
+    train_transforms = transforms.Compose([
+        transforms.Resize(256),
+        transforms.FiveCrop(224),
+		transforms.Lambda(
+			lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])
+		),
+		transforms.Lambda(
+			lambda crops: torch.stack([normalize(crop) for crop in crops])
+		),
+    ])
+    test_transforms = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        normalize,
+    ])
+    return train_transforms, test_transforms
+
+
+def five_crop_grayscale_transforms(norms):
+    normalize = transforms.Normalize(*norms)
+    train_transforms = transforms.Compose([
+        transforms.Resize(256),
+        transforms.FiveCrop(224),
+		transforms.Lambda(
+			lambda crops: torch.stack([transforms.ToGrayscaleTensor()(crop) for crop in crops])
+		),
+		transforms.Lambda(
+			lambda crops: torch.stack([normalize(crop) for crop in crops])
+		),
+    ])
+    test_transforms = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToGrayscaleTensor(),
+        normalize,
+    ])
