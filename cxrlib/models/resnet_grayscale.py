@@ -7,7 +7,11 @@ Grayscale variant of resnet.
 import torch.nn as nn
 import math
 import torch.utils.model_zoo as model_zoo
+from torchvision.models.resnet import resnet50 as resnet50_rgb
 
+model_urls = {
+    'resnet50': 'https://download.pytorch.org/models/resnet50-19c8e357.pth',
+}
 
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
@@ -152,8 +156,16 @@ def resnet34(**kwargs):
     return model
 
 
-def resnet50(**kwargs):
+def resnet50(pretrained=True, **kwargs):
     """Constructs a ResNet-50 model.
     """
-    model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
+    if pretrained:
+        model = resnet50_rgb(pretrained=True)
+        model.fc = nn.Linear(model.fc.in_features, 14, bias=True)
+        conv1_weights = model.conv1.weight.data
+        new_weights = conv1_weights.mean(dim=1).unsqueeze(1)
+        model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        model.conv1.weight.data = new_weights
+    else:
+        model = ResNet(Bottleneck, [3, 4, 6, 3], num_classes=14, **kwargs)
     return model

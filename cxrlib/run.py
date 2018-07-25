@@ -41,6 +41,7 @@ class RunModel(object):
         self.cuda_wrapper = lambda x: x.cuda() if use_cuda else x
         self.cuda_async_wrapper = lambda x: x.cuda(non_blocking=True) if use_cuda else x
         self.validation_loader = validation_loader
+        self.epoch = 0
 
     def train_multi_epoch(self, epochs):
         """
@@ -55,6 +56,7 @@ class RunModel(object):
                 self.generic_validation_epoch()
 
     def generic_train_epoch(self, epoch_num):
+        self.epoch = epoch_num
         self.model.train()
         with torch.enable_grad():
             for i, (inp, target) in enumerate(self.train_loader):
@@ -240,4 +242,13 @@ class RunModelWithTestAUCReporting(RunModel):
     Run your model and your testing set at the end of each epoch
     """
     def post_epoch_actions(self):
-        self.generic_test_epoch()
+        try:
+            run_after_ep = self.args.run_test_after_epoch
+        except:
+            run_after_ep = 0
+        if self.epoch > run_after_ep:
+            self.generic_test_epoch()
+
+
+class RunModelWithAUCAndValLR(RunModelWithValidationLRScheduler, RunModelWithTestAUCReporting):
+    pass
