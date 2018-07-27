@@ -26,7 +26,8 @@ def main():
     # training options
     parser.add_argument('--epochs', default=50, type=int)
     parser.add_argument('--batch-size', default=16, type=int)
-    parser.add_argument('--weight-init', choices=['xavier', 'kaiming'], default='xavier')
+    parser.add_argument('--weight-init', choices=['xavier', 'kaiming'], default='kaiming')
+    parser.add_argument('-r', '--run-test-after-epoch', type=int, help='run testing auc calculations after epoch N')
     # model hyperparameters
     parser.add_argument('-lr', '--loss-rate', type=float, default=.001)
     args = parser.parse_args()
@@ -78,7 +79,7 @@ def main():
     del valid_loader
     torch.cuda.empty_cache()
     runner.generic_test_epoch()
-    reporting.save_all('resnet50-color-pretrained-{}'.format(args.pretrained))
+    reporting.save_all('resnet50-color-pretrained-{}-bs-{}-lr-{}'.format(args.pretrained, args.batch_size, args.loss_rate))
 
 
 if __name__ == "__main__":
