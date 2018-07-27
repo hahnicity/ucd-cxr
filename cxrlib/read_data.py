@@ -97,16 +97,51 @@ class RandomDataset(Dataset):
         return len(self.data)
 
 
-def get_loaders(images_path,
-                labels_path,
-                batch_size,
-                num_workers,
-                convert_to,
-                norms,
-                train_transforms,
-                test_transforms,
-                is_preprocessed,
-                get_validation_set):
+def _get_transforms(trans_type, norms, convert_to):
+    """
+    :param trans_type: Can be guan, five_crop, openi, or baltruschat
+    :param norms: Can be cxr14 or imagenet
+    :param convert_to: Can be RGB or LA
+    """
+    if norms == 'cxr14' and convert_to == 'RGB':
+        norms = CXR14_RGB_NORM
+    elif norms == 'cxr14' and convert_to == 'LA':
+        norms = CXR14_LA_NORM
+    elif norms == 'imagenet':
+        norms = IMAGENET_NORM
+
+    if convert_to == 'RGB':
+        if trans_type == 'five_crop':
+            train_transforms, test_transforms = cxr_transforms.five_crop_rgb_transforms(norms)
+        elif trans_type == 'guan':
+            train_transforms, test_transforms = cxr_transforms.guan_rgb_transforms(norms)
+        elif trans_type == 'baltruschat':
+            train_transforms, test_transforms = cxr_transforms.baltruschat_rgb_transforms(norms)
+        elif trans_type == 'openi':
+            train_transforms, test_transforms = cxr_transforms.openi_rgb_transforms(norms)
+    elif convert_to == 'LA':
+        if trans_type == 'five_crop':
+            train_transforms, test_transforms = cxr_transforms.five_crop_grayscale_transforms(norms)
+        elif trans_type == 'guan':
+            train_transforms, test_transforms = cxr_transforms.guan_grayscale_transforms(norms)
+        elif trans_type == 'baltruschat':
+            train_transforms, test_transforms = cxr_transforms.baltruschat_grayscale_transforms(norms)
+        elif trans_type == 'openi':
+            train_transforms, test_transforms = cxr_transforms.openi_grayscale_transforms(norms)
+
+    return train_transforms, test_transforms
+
+
+def _get_loaders(images_path,
+                 labels_path,
+                 batch_size,
+                 num_workers,
+                 convert_to,
+                 norms,
+                 train_transforms,
+                 test_transforms,
+                 is_preprocessed,
+                 get_validation_set):
     """
     Get data loaders for CXR14
 
@@ -168,10 +203,30 @@ def get_loaders(images_path,
         return train_loader, test_loader
 
 
+def get_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14', is_preprocessed=False, get_validation_set=False, transform_type='guan'):
+    """
+    Get data loaders for either CXR14 or OpenI
+
+    :param images_path: path to directory where all images are located
+    :param labels_path: path to directory where all labels are located
+    :param batch_size: size of mini-batches for train and test sets
+    :param num_workers: number of cpu workers to use when loading data
+    :param convert_to: convert images to RGB or LA (for grayscale)
+    :param norms: the dataset normalization standard we want to use. Accepts cxr14 and imagenet
+    :param is_preprocessed: is the dataset preprocessed? Does it need transforms?
+    :param get_validation_set: Return the validation loader or no?
+    :param transform_type: The type of transforms we want to perform on our image choices: openi, guan, five_crop, baltruschat
+    """
+    train_transforms, test_transforms = _get_transforms(transform_type, norms, convert_to)
+    return _get_loaders(images_path, labels_path, batch_size, num_workers, convert_to, norms, train_transforms, test_transforms, is_preprocessed, get_validation_set)
+
+
 def get_openi_loaders(images_path, train_labels_path, valid_labels_path, test_labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14', is_preprocessed=False):
     """
     Get data loaders for OpenI dataset. Since OpenI is significantly smaller than
     CXR14 we perform some transforms to boost the amount of data that we have.
+
+    DEPRECATED, DO NOT USE, USE get_loaders instead
 
     :param images_path: path to directory where all images are located
     :param train_labels_path: full path to train labels
@@ -183,15 +238,7 @@ def get_openi_loaders(images_path, train_labels_path, valid_labels_path, test_la
     :param norms: the dataset normalization standard we want to use. Accepts cxr14 and imagenet
     :param is_preprocessed: is the dataset preprocessed? Does it need transforms?
     """
-    if norms == 'cxr14' and convert_to == 'RGB':
-        norms = CXR14_RGB_NORM
-        train_transforms, test_transforms = cxr_transforms.openi_rgb_transforms(norms)
-    elif norms == 'cxr14' and convert_to == 'LA':
-        norms = CXR14_LA_NORM
-        train_transforms, test_transforms = cxr_transforms.openi_grayscale_transforms(norms)
-    elif norms == 'imagenet':
-        norms = IMAGENET_NORM
-        train_transforms, test_transforms = cxr_transforms.openi_rgb_transforms(norms)
+    train_transforms, test_transforms = _get_transforms('openi', norms, convert_to)
     train_dataset = ChestXrayDataSet(
         data_dir=images_path,
         image_list_file=train_labels_path,
@@ -236,6 +283,28 @@ def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiproc
     be useful. However, there are still improvements that can be made and it should not
     be used long-term
 
+    DEPRECATED, DO NOT USE, USE get_loaders instead
+
+    :param images_path: path to directory where all images are located
+    :param labels_path: path to directory where all labels are located
+    :param batch_size: size of mini-batches for train and test sets
+    :param num_workers: number of cpu workers to use when loading data
+    :param convert_to: convert images to RGB or LA (for grayscale)
+    :param norms: the dataset normalization standard we want to use. Accepts cxr14 and imagenet
+    :param is_preprocessed: is the dataset preprocessed? Does it need transforms?
+    :param get_validation_set: Return the validation loader or no?
+    :param transform_type: The type of transforms we want to perform on our image choices: openi, guan, five_crop, baltruschat
+    """
+    train_transforms, test_transforms = _get_transforms('guan', norms, convert_to)
+    return _get_loaders(images_path, labels_path, batch_size, num_workers, convert_to, norms, train_transforms, test_transforms, is_preprocessed, get_validation_set)
+
+
+def get_five_crop_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14', is_preprocessed=False, get_validation_set=False):
+    """
+    Get data loaders for Five Crop method.
+
+    DEPRECATED, DO NOT USE, USE get_loaders instead
+
     :param images_path: path to directory where all images are located
     :param labels_path: path to directory where all labels are located
     :param batch_size: size of mini-batches for train and test sets
@@ -245,26 +314,5 @@ def get_guan_loaders(images_path, labels_path, batch_size, num_workers=multiproc
     :param is_preprocessed: is the dataset preprocessed? Does it need transforms?
     :param get_validation_set: Return the validation loader or no?
     """
-    if norms == 'cxr14' and convert_to == 'RGB':
-        norms = CXR14_RGB_NORM
-        train_transforms, test_transforms = cxr_transforms.guan_rgb_transforms(norms)
-    elif norms == 'cxr14' and convert_to == 'LA':
-        norms = CXR14_LA_NORM
-        train_transforms, test_transforms = cxr_transforms.guan_grayscale_transforms(norms)
-    elif norms == 'imagenet':
-        norms = IMAGENET_NORM
-        train_transforms, test_transforms = cxr_transforms.guan_rgb_transforms(norms)
-    return get_loaders(images_path, labels_path, batch_size, num_workers, convert_to, norms, train_transforms, test_transforms, is_preprocessed, get_validation_set)
-
-
-def get_five_crop_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14', is_preprocessed=False, get_validation_set=False):
-    if norms == 'cxr14' and convert_to == 'RGB':
-        norms = CXR14_RGB_NORM
-        train_transforms, test_transforms = cxr_transforms.five_crop_rgb_transforms(norms)
-    elif norms == 'cxr14' and convert_to == 'LA':
-        norms = CXR14_LA_NORM
-        train_transforms, test_transforms = cxr_transforms.five_crop_grayscale_transforms(norms)
-    elif norms == 'imagenet':
-        norms = IMAGENET_NORM
-        train_transforms, test_transforms = cxr_transforms.five_crop_rgb_transforms(norms)
-    return get_loaders(images_path, labels_path, batch_size, num_workers, convert_to, norms, train_transforms, test_transforms, is_preprocessed, get_validation_set)
+    train_transforms, test_transforms = _get_transforms('five_crop', norms, convert_to)
+    return _get_loaders(images_path, labels_path, batch_size, num_workers, convert_to, norms, train_transforms, test_transforms, is_preprocessed, get_validation_set)

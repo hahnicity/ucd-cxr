@@ -7,7 +7,7 @@ from torchvision import transforms
 
 from cxrlib.init import kaiming_init, xavier_init
 from cxrlib.models.resnet_grayscale import resnet50
-from cxrlib.read_data import get_guan_loaders
+from cxrlib.read_data import get_loaders
 from cxrlib.results import Reporting
 from cxrlib.run import RunModelWithAUCAndValLR
 
@@ -23,6 +23,7 @@ def main():
     parser.add_argument('--load-openi-model', help='specify path to stored openi model')
     parser.add_argument('--no-validation', action='store_true')
     parser.add_argument('--pretrained', action='store_true')
+    parser.add_argument('--loader', choices=['baltruschat', 'five_crop', 'guan'], default='guan')
     # training options
     parser.add_argument('--epochs', default=50, type=int)
     parser.add_argument('--batch-size', default=16, type=int)
@@ -30,6 +31,7 @@ def main():
     parser.add_argument('-r', '--run-test-after-epoch', type=int, help='run testing auc calculations after epoch N')
     # model hyperparameters
     parser.add_argument('-lr', '--loss-rate', type=float, default=.001)
+    parser.add_argument('--nesterov', action='store_true')
     args = parser.parse_args()
 
     cuda_wrapper = lambda x: x.cuda() if args.device == 'cuda' else x
@@ -53,12 +55,12 @@ def main():
         is_preprocessed = False
 
     if args.no_validation:
-        train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, convert_to='LA', is_preprocessed=is_preprocessed)
+        train_loader, test_loader = get_loaders(args.images_path, args.labels_path, args.batch_size, convert_to='LA', is_preprocessed=is_preprocessed, transform_type=args.loader)
         valid_loader = None
     else:
-        train_loader, valid_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, convert_to='LA', is_preprocessed=is_preprocessed, get_validation_set=True)
+        train_loader, valid_loader, test_loader = get_loaders(args.images_path, args.labels_path, args.batch_size, convert_to='LA', is_preprocessed=is_preprocessed, get_validation_set=True, transform_type=args.loader)
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.loss_rate, momentum=.9, weight_decay=1e-4)
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.loss_rate, momentum=.9, weight_decay=1e-4, nesterov=args.nesterov)
     lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=5, mode='min')
     criterion = torch.nn.BCEWithLogitsLoss()
     reporting = Reporting(args.results_path)
@@ -80,7 +82,7 @@ def main():
     del valid_loader
     torch.cuda.empty_cache()
     runner.generic_test_epoch()
-    reporting.save_all('resnet50-grayscale-pretrained-{}-bs-{}-lr-{}'.format(args.pretrained, args.batch_size, args.loss_rate))
+    reporting.save_all('resnet50-loader-{}-grayscale-pretrained-{}-bs-{}-lr-{}'.format(args.loader, args.pretrained, args.batch_size, args.loss_rate))
 
 
 if __name__ == "__main__":

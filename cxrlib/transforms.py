@@ -139,3 +139,42 @@ def five_crop_grayscale_transforms(norms):
         transforms.ToGrayscaleTensor(),
         normalize,
     ])
+    return train_transforms, test_transforms
+
+
+def baltruschat_grayscale_transforms(norms):
+    normalize = transforms.Normalize(*norms)
+    train_transforms = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(7),
+        transforms.ToGrayscaleTensor(),
+        normalize,
+    ])
+    train_transforms = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToGrayscaleTensor(),
+        normalize,
+    ])
+    return train_transforms, test_transforms
+
+
+def baltruschat_rgb_transforms(norms):
+    normalize = transforms.Normalize(*norms)
+    train_transforms = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(7),
+        transforms.ToTensor(),
+        normalize,
+    ])
+    train_transforms = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        normalize,
+    ])
+    return train_transforms, test_transforms
