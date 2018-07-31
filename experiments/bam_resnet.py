@@ -3,13 +3,14 @@ import multiprocessing
 import os
 
 import torch
+from torch.optim.lr_scheduler import MultiStepLR
 from torchvision import transforms
 from torchvision.models.resnet import resnet50
 
 from cxrlib.models.bottleneck_attention import resnet50ish
 from cxrlib.read_data import get_five_crop_loaders, get_guan_loaders
 from cxrlib.results import Reporting
-from cxrlib.run import RunModel
+from cxrlib.run import RunModelWithTestAUCReporting
 
 
 def main():
@@ -24,7 +25,9 @@ def main():
     parser.add_argument('--loader', choices=['five_crop', 'guan'], default='guan')
     # training options
     parser.add_argument('--epochs', default=50, type=int)
-    parser.add_argument('--batch-size', default=32, type=int)
+    parser.add_argument('--batch-size', default=8, type=int)
+    parser.add_argument('-lr', '--learning-rate', default=.01, type=float)
+    parser.add_argument('-run', '--run-test-after-epoch', default=0, type=int)
     # model hyperparameters
     parser.add_argument('-r', '--reduction-coef', default=16, type=int)
     parser.add_argument('-d', '--dilation', default=4, type=int)
@@ -51,17 +54,18 @@ def main():
     else:
         train_loader, valid_loader, test_loader = get_five_crop_loaders(args.images_path, args.labels_path, args.batch_size, is_preprocessed=is_preprocessed, get_validation_set=True)
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=.01, momentum=.9, weight_decay=1e-4, nesterov=True)
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=.9, weight_decay=1e-4, nesterov=True)
+    scheduler = MultiStepLR(optimizer, [30, 40, 50])
     criterion = torch.nn.BCEWithLogitsLoss()
     reporting = Reporting(args.results_path)
     reporting.register(model, 'model', False)
-    runner = RunModel(
+    runner = RunModelWithTestAUCReporting(
         args,
         model,
         train_loader,
         test_loader,
         optimizer,
-        None,
+        scheduler,
         criterion,
         True if args.device == 'cuda' else False,
         reporting,
@@ -71,8 +75,7 @@ def main():
     del train_loader
     del valid_loader
     torch.cuda.empty_cache()
-    runner.generic_test_epoch()
-    reporting.save_all('bam-resnet50ish-rgb')
+    reporting.save_all('bam-resnet50ish-rgb-lr-{}-bs-{}'.format(args,learning_rate, args.batch_size))
 
 
 if __name__ == "__main__":
