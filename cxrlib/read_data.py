@@ -143,7 +143,7 @@ def _get_loaders(images_path,
                  is_preprocessed,
                  get_validation_set):
     """
-    Get data loaders for CXR14
+    Get data loaders for CXR14 or OpenI
 
     :param images_path: path to directory where all images are located
     :param train_labels_path: full path to train labels

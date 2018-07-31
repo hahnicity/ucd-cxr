@@ -28,7 +28,7 @@ def main():
     parser.add_argument('--epochs', default=50, type=int)
     parser.add_argument('--batch-size', default=16, type=int)
     parser.add_argument('--weight-init', choices=['xavier', 'kaiming'], default='kaiming')
-    parser.add_argument('-r', '--run-test-after-epoch', type=int, help='run testing auc calculations after epoch N')
+    parser.add_argument('-r', '--run-test-after-epoch', type=int, help='run testing auc calculations after epoch N', default=0)
     # model hyperparameters
     parser.add_argument('-lr', '--loss-rate', type=float, default=.001)
     parser.add_argument('--nesterov', action='store_true')
@@ -82,7 +82,7 @@ def main():
     del valid_loader
     torch.cuda.empty_cache()
     runner.generic_test_epoch()
-    reporting.save_all('resnet50-loader-{}-grayscale-pretrained-{}-bs-{}-lr-{}'.format(args.loader, args.pretrained, args.batch_size, args.loss_rate))
+    reporting.save_all('resnet50-loader-{}-grayscale-pretrained-{}-bs-{}-lr-{}-nesterov-{}'.format(args.loader, args.pretrained, args.batch_size, args.loss_rate, args.nesterov))
 
 
 if __name__ == "__main__":
