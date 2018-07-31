@@ -3,6 +3,8 @@ import torch.nn as nn
 import torchvision.models as models
 from matplotlib import pyplot as plt
 
+
+
 class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
@@ -35,6 +37,8 @@ def plot_kernels(tensor, num_cols=6):
         ax1.axis('off')
         ax1.set_xticklabels([])
         ax1.set_yticklabels([])
+import sys
+sys.path.append("../")
 from model import DenseNet121 
 cnn = DenseNet121(14)
 #cnn = CNN()
