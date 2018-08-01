@@ -13,7 +13,7 @@ from cxrlib.results import compute_AUCs
 
 
 class RunModel(object):
-    def __init__(self, args, model, train_loader, test_loader, optimizer, lr_scheduler, criterion, use_cuda, reporting, validation_loader=None):
+    def __init__(self, args, model, train_loader, test_loader, optimizer, lr_scheduler, criterion, use_cuda, reporting, validation_loader=None, tmp_save_path='/tmp'):
         """
         :param args: arguments from command line. Can be None if we're not using any
         :param model: pytorch model to train
@@ -25,6 +25,7 @@ class RunModel(object):
         :param use_cuda: True if we are using a GPU, False otherwise
         :param reporting: an instance of cxrlib.results.Reporting
         :param validation_loader: Loader for validation set. Doesn't have to be set
+        :param tmp_save_path: Path to save your model after an epoch ends
         """
         self.args = args
         try:
@@ -42,6 +43,8 @@ class RunModel(object):
         self.cuda_async_wrapper = lambda x: x.cuda(non_blocking=True) if use_cuda else x
         self.validation_loader = validation_loader
         self.epoch = 0
+        # XXX Need to cleanup everything in this path if model executes ok
+        self.tmp_save_path = tmp_save_path
 
     def train_multi_epoch(self, epochs):
         """
@@ -105,6 +108,7 @@ class RunModel(object):
                 self.post_batch_actions()
 
             self.reporting.update('loss_rate', self.optimizer.state_dict()['param_groups'][0]['lr'])
+            self.reporting.save('model', dir_override=self.tmp_save_path, timestamp='epoch-{}'.format(epoch_num))
             self.post_epoch_actions()
 
     def generic_validation_epoch(self):

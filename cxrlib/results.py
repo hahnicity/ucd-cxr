@@ -7,13 +7,13 @@ from cxrlib import constants
 
 
 class SavedObjects(object):
-    def __init__(self, file_dir):
+    def __init__(self, file_dir, file_suffix):
         """
         Because saving objects after a network finishes training is tricky,
         we can just use this helper class to keep track of the objects we
         want to save. Afterwards save everything to file. Example:
 
-            saved_objs = SavedObjects('/path/to/results')
+            saved_objs = SavedObjects('/path/to/results', 'file_suffix')
             model = ResNet50()
             training_loss = []
             saved_objs.register(model, 'resnet50_weights', True)
@@ -22,10 +22,11 @@ class SavedObjects(object):
             ... Do training stuff
             ... Do testing stuff
 
-            saved_objs.save_all('date_finished')
+            saved_objs.save_all()
         """
-        self.saved_objects = []
+        self.saved_objects = {}
         self.file_dir = file_dir
+        self.file_suffix = file_suffix
 
     def register(self, obj, file_prefix, save_weights):
         """
@@ -35,29 +36,30 @@ class SavedObjects(object):
                              False otherwise. We do this so we only save model weights
                              and not the entire model
         """
-        self.saved_objects.append((obj, file_prefix, save_weights))
+        self.saved_objects[file_prefix] = (obj, save_weights)
 
-    def save_all(self, file_suffix):
-        for obj, prefix, save_weights in self.saved_objects:
-            filename = "_".join([prefix, file_suffix]) + ".pt"
+    def save(self, name, timestamp="", dir_override=None):
+        obj, save_weights = self.saved_objects[name]
+        joined = [prefix, self.file_suffix, timestamp] if timestamp else [prefix, self.file_suffix]
+        filename = "_".join(joined) + ".pt"
+        if not dir_override:
             filepath = os.path.join(self.file_dir, filename)
-            if save_weights:
-                torch.save(obj.state_dict(), filepath)
-            else:
-                torch.save(obj, filepath)
+        else:
+            filepath = os.path.join(dir_override, filename)
 
-# XXX A good idea would be to make an overarching results tabulator that can handle
-# multiple streams of results. The deal here is that it would need to keep track of
-# epoch and batch steps and then it could fill in results for both of these
-# as new results are updated.
-#
-# So doing the batch level and epoch level work is a bit more difficult, so maybe
-# think of a way to come back to that. What is reasonable currently is a series
-# of pre-made meters for loss, timing, etc
+        if save_weights:
+            torch.save(obj.state_dict(), filepath)
+        else:
+            torch.save(obj, filepath)
+
+    def save_all(self, timestamp=""):
+        for prefix in self.saved_objects:
+            self.save(prefix, timestamp=timestamp)
+
 
 class Reporting(SavedObjects):
-    def __init__(self, file_dir):
-        super(Reporting, self).__init__(file_dir)
+    def __init__(self, file_dir, file_suffix):
+        super(Reporting, self).__init__(file_dir, file_suffix)
         self.meters = {
             "train_loss": Meter('train_loss'),
             'validation_loss': Meter('validation_loss'),

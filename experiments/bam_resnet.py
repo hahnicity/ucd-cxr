@@ -57,7 +57,7 @@ def main():
     optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=.9, weight_decay=1e-4, nesterov=True)
     scheduler = MultiStepLR(optimizer, [30, 40, 50])
     criterion = torch.nn.BCEWithLogitsLoss()
-    reporting = Reporting(args.results_path)
+    reporting = Reporting(args.results_path, 'bam-resnet50ish-rgb-lr-{}-bs-{}'.format(args.learning_rate, args.batch_size))
     reporting.register(model, 'model', False)
     runner = RunModelWithTestAUCReporting(
         args,
@@ -72,10 +72,7 @@ def main():
         validation_loader=valid_loader,
     )
     runner.train_multi_epoch(args.epochs)
-    del train_loader
-    del valid_loader
-    torch.cuda.empty_cache()
-    reporting.save_all('bam-resnet50ish-rgb-lr-{}-bs-{}'.format(args,learning_rate, args.batch_size))
+    reporting.save_all()
 
 
 if __name__ == "__main__":
