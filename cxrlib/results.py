@@ -40,7 +40,7 @@ class SavedObjects(object):
 
     def save(self, name, timestamp="", dir_override=None):
         obj, save_weights = self.saved_objects[name]
-        joined = [prefix, self.file_suffix, timestamp] if timestamp else [prefix, self.file_suffix]
+        joined = [name, self.file_suffix, timestamp] if timestamp else [name, self.file_suffix]
         filename = "_".join(joined) + ".pt"
         if not dir_override:
             filepath = os.path.join(self.file_dir, filename)
@@ -53,8 +53,8 @@ class SavedObjects(object):
             torch.save(obj, filepath)
 
     def save_all(self, timestamp=""):
-        for prefix in self.saved_objects:
-            self.save(prefix, timestamp=timestamp)
+        for name in self.saved_objects:
+            self.save(name, timestamp=timestamp)
 
 
 class Reporting(SavedObjects):

@@ -108,7 +108,7 @@ class RunModel(object):
                 self.post_batch_actions()
 
             self.reporting.update('loss_rate', self.optimizer.state_dict()['param_groups'][0]['lr'])
-            self.reporting.save('model', dir_override=self.tmp_save_path, timestamp='epoch-{}'.format(epoch_num))
+            self.reporting.save('model', dir_override=self.tmp_save_path)
             self.post_epoch_actions()
 
     def generic_validation_epoch(self):

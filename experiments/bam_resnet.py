@@ -13,6 +13,12 @@ from cxrlib.results import Reporting
 from cxrlib.run import RunModelWithTestAUCReporting
 
 
+class BAMRun(RunModelWithTestAUCReporting):
+    def post_epoch_actions(self):
+        super().post_epoch_actions()
+        self.lr_scheduler.step()
+
+
 def main():
     parser = argparse.ArgumentParser()
     # run related options
@@ -23,6 +29,7 @@ def main():
     parser.add_argument('--print-progress', action='store_true')
     parser.add_argument('--no-validation', action='store_true')
     parser.add_argument('--loader', choices=['five_crop', 'guan'], default='guan')
+    parser.add_argument('--tmp-objs-path', default='tmp_save')
     # training options
     parser.add_argument('--epochs', default=50, type=int)
     parser.add_argument('--batch-size', default=8, type=int)
@@ -59,7 +66,7 @@ def main():
     criterion = torch.nn.BCEWithLogitsLoss()
     reporting = Reporting(args.results_path, 'bam-resnet50ish-rgb-lr-{}-bs-{}'.format(args.learning_rate, args.batch_size))
     reporting.register(model, 'model', False)
-    runner = RunModelWithTestAUCReporting(
+    runner = BAMRun(
         args,
         model,
         train_loader,
@@ -70,6 +77,7 @@ def main():
         True if args.device == 'cuda' else False,
         reporting,
         validation_loader=valid_loader,
+        tmp_save_path=args.tmp_objs_path,
     )
     runner.train_multi_epoch(args.epochs)
     reporting.save_all()
