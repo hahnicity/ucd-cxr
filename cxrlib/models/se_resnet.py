@@ -85,10 +85,8 @@ class SEBottleneck(nn.Module):
 
 
 def se_resnet50(num_classes, **kwargs):
-    """Constructs a ResNet-50 model.
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
+    """
+    Constructs a ResNet-50 model.
     """
     model = ResNet(SEBottleneck, [3, 4, 6, 3], num_classes=num_classes)
     model.avgpool = nn.AdaptiveAvgPool2d(1)
