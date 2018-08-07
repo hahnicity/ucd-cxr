@@ -23,6 +23,18 @@ from cxrlib.label_preprocessing import knapsack_splitter
 TRAIN_TEST_SPLIT = .8
 
 
+def add_bbox_annos_to_bbox_set(bbox_df, final_list):
+    base_n_cols = len(bbox_df.columns)
+    for idx, row in bbox_df.iterrows():
+        for bbox_annos in final_list:
+            if bbox_annos[0] == row[0]:
+                for offset, val in enumerate(bbox_annos[1:]):
+                    bbox_df.loc[idx, base_n_cols+offset] = val
+                break
+        else:
+            raise Exception('you have a problem')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('bbox_filepath')
@@ -126,28 +138,8 @@ def main():
         writer = csv.writer(f, delimiter=' ')
         writer.writerows(new_test_set_nobbox.values)
 
-    # now just segment bbox into train and test and write to file
-    train_bbox_list = []
-    test_bbox_list = []
-    base_n_cols = len(train_bbox.columns)
-    for idx, row in train_bbox.iterrows():
-        for bbox_annos in final_list:
-            if bbox_annos[0] == row[0]:
-                for offset, val in enumerate(bbox_annos[1:]):
-                    train_bbox.loc[idx, base_n_cols+offset] = val
-                break
-        else:
-            raise Exception('you have a problem')
-
-    for idx, row in test_bbox.iterrows():
-        for bbox_annos in final_list:
-            if bbox_annos[0] == row[0]:
-                for offset, val in enumerate(bbox_annos[1:]):
-                    test_bbox.loc[idx, base_n_cols+offset] = val
-                break
-        else:
-            raise Exception('you have a problem')
-
+    add_bbox_annos_to_bbox_set(train_bbox, final_list)
+    add_bbox_annos_to_bbox_set(test_bbox, final_list)
     train_bbox = train_bbox.drop(['patient'], axis=1)
     test_bbox = test_bbox.drop(['patient'], axis=1)
 

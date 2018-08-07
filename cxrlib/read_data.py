@@ -16,6 +16,79 @@ from cxrlib.constants import CXR14_LA_NORM, CXR14_RGB_NORM, IMAGENET_NORM
 from cxrlib import transforms as cxr_transforms
 
 
+class BBoxChestXrayDataSet(Dataset):
+    def __init__(self, data_dir, bbox_list_file, is_preprocessed=False, transform=None, convert_to='RGB'):
+        """
+        Get Dataset for bounding box images
+
+        :param data_dir: path to image directory.
+        :param bbox_list_file: path to file where filenames are matched with bounding box coords
+        :param is_preprocessed: if the data directory contains preprocessed information. If so do no transformations
+        :param transform: optional transform to be applied on a sample.
+        :param convert_to: convert the image to rgb (RGB) or grayscale (LA)
+        """
+        self.fnames = []
+        self.boxes = []
+        self.labels = []
+        with open(bbox_list_file, "r") as f:
+            for line in f:
+                split = [i for i in line.strip().split() if i != 'nan']
+                # -15 because of the 14 GT annos plus 1 img filename
+                num_boxes = (len(split) - 15) // 5
+                self.fnames.append(os.path.join(data_dir, split[0]))
+                label = []
+                box = []
+                for i in range(num_boxes):
+                    xmin = float(split[15+5*i])
+                    ymin = float(split[16+5*i])
+                    xmax = float(split[17+5*i])
+                    ymax = float(split[18+5*i])
+                    label.append(float(split[19+5*i]))
+                    box.append([xmin, ymin, xmax, ymax])
+                self.boxes.append(box)
+                self.labels.append(label)
+
+        self.transform = transform
+        self.convert_to = convert_to
+        self.is_preprocessed = is_preprocessed
+
+    def __getitem__(self, index):
+        """
+        :param index: the index of item
+
+        Returns:
+            image and its labels
+        """
+        image_name = self.fnames[index]
+        labels = self.labels[index]
+        boxes = self.boxes[index]
+
+        # XXX figure out how to integrate bbox transforms
+        if self.transform and not self.is_preprocessed:
+            image = Image.open(image_name).convert(self.convert_to)
+            image = self.transform(image)
+        elif not self.transform and not self.is_preprocessed:
+            image = Image.open(image_name).convert(self.convert_to)
+        else:
+            image = torch.load(image_name)
+
+        # We're using multi-crop here
+        if image.ndimension() == 4:
+            # XXX figure out boxes on multi-crop
+            raise NotImplementedError('multi-crop is not implemented yet for bounding boxes')
+            ncrops = image.size(0)
+            labels = torch.FloatTensor([label])
+
+            for _ in range(ncrops-1):
+                labels = torch.cat((labels, torch.FloatTensor([label])), 0)
+            return image, labels
+        else:
+            return image, torch.FloatTensor(boxes), torch.FloatTensor(labels)
+
+    def __len__(self):
+        return len(self.image_names)
+
+
 class ChestXrayDataSet(Dataset):
     def __init__(self, data_dir, image_list_file, is_preprocessed=False, transform=None, convert_to='RGB'):
         """
@@ -173,7 +246,7 @@ def _get_loaders(images_path,
     )
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset, batch_size=batch_size,
-        shuffle=False, num_workers=num_workers, pin_memory=True
+        shuffle=True, num_workers=num_workers, pin_memory=True
     )
     test_dataset = ChestXrayDataSet(
         data_dir=images_path,
@@ -184,7 +257,7 @@ def _get_loaders(images_path,
     )
     test_loader = torch.utils.data.DataLoader(
         dataset=test_dataset, batch_size=batch_size,
-        shuffle=False, num_workers=num_workers, pin_memory=True
+        shuffle=True, num_workers=num_workers, pin_memory=True
     )
     if get_validation_set:
         valid_dataset = ChestXrayDataSet(
@@ -196,7 +269,7 @@ def _get_loaders(images_path,
         )
         valid_loader = torch.utils.data.DataLoader(
             dataset=valid_dataset, batch_size=batch_size,
-            shuffle=False, num_workers=num_workers, pin_memory=True
+            shuffle=True, num_workers=num_workers, pin_memory=True
         )
         return train_loader, valid_loader, test_loader
     else:
@@ -248,7 +321,7 @@ def get_openi_loaders(images_path, train_labels_path, valid_labels_path, test_la
     )
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset, batch_size=batch_size,
-        shuffle=False, num_workers=num_workers, pin_memory=True
+        shuffle=True, num_workers=num_workers, pin_memory=True
     )
     valid_dataset = ChestXrayDataSet(
         data_dir=images_path,
@@ -259,7 +332,7 @@ def get_openi_loaders(images_path, train_labels_path, valid_labels_path, test_la
     )
     valid_loader = torch.utils.data.DataLoader(
         dataset=valid_dataset, batch_size=batch_size,
-        shuffle=False, num_workers=num_workers, pin_memory=True
+        shuffle=True, num_workers=num_workers, pin_memory=True
     )
     # XXX in future allow option for no test dataset so that we can do pure
     # pretraining
@@ -272,7 +345,7 @@ def get_openi_loaders(images_path, train_labels_path, valid_labels_path, test_la
     )
     test_loader = torch.utils.data.DataLoader(
         dataset=test_dataset, batch_size=batch_size,
-        shuffle=False, num_workers=num_workers, pin_memory=True
+        shuffle=True, num_workers=num_workers, pin_memory=True
     )
     return train_loader, valid_loader, test_loader
 

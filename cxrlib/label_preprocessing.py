@@ -144,8 +144,8 @@ def perform_validation_set_creation(args):
     train_set = train_set[train_rows]
 
     label_dir = os.path.dirname(args.train_list)
-    train_path = os.path.join(label_dir, "train_list.processed")
-    valid_path = os.path.join(label_dir, "val_list.processed")
+    train_path = os.path.join(label_dir, args.train_filename)
+    valid_path = os.path.join(label_dir, args.val_filename)
     np.savetxt(train_path, train_set, fmt='%s ')
     np.savetxt(valid_path, valid_set, fmt='%s ')
 
@@ -161,6 +161,8 @@ def main():
     valid_parser.add_argument('train_list')
     valid_parser.add_argument('test_list')
     valid_parser.add_argument('--val-percent', help='overall percentage of total dataset validation set will use', type=int, default=10)
+    valid_parser.add_argument('--train-filename', default='train_list.processed')
+    valid_parser.add_argument('--val-filename', default='val_list.processed')
     valid_parser.set_defaults(func=perform_validation_set_creation)
     args = parser.parse_args()
     args.func(args)
