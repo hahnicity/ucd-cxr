@@ -63,7 +63,7 @@ def main():
     optimizer = torch.optim.SGD(model.parameters(), lr=args.loss_rate, momentum=.9, weight_decay=1e-4, nesterov=args.nesterov)
     lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=5, mode='min')
     criterion = torch.nn.BCEWithLogitsLoss()
-    reporting = Reporting(args.results_path)
+    reporting = Reporting(args.results_path, 'resnet50-color-loader-{}-pretrained-{}-bs-{}-lr-{}-nesterov-{}'.format(args.loader, args.pretrained, args.batch_size, args.loss_rate, args.nesterov))
     reporting.register(model, 'model', False)
     runner = RunModelWithAUCAndValLR(
         args,
@@ -82,7 +82,7 @@ def main():
     del valid_loader
     torch.cuda.empty_cache()
     runner.generic_test_epoch()
-    reporting.save_all('resnet50-color-loader-{}-pretrained-{}-bs-{}-lr-{}-nesterov-{}'.format(args.loader, args.pretrained, args.batch_size, args.loss_rate, args.nesterov))
+    reporting.save_all()
 
 
 if __name__ == "__main__":

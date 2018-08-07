@@ -48,7 +48,7 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=args.loss_rate)
     lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=5, mode='min')
     criterion = torch.nn.BCEWithLogitsLoss()
-    reporting = Reporting(args.results_path, 'squeezenet-resnet50-rgb-loader-{}-bs-{}-lr-{}'.format(args.loader, args.batch_size, args.loss_rate))
+    reporting = Reporting(args.results_path, 'squeeze-excite-resnet50-rgb-loader-{}-bs-{}-lr-{}'.format(args.loader, args.batch_size, args.loss_rate))
     reporting.register(model, 'model', False)
     runner = RunModelWithAUCAndValLR(
         args,
