@@ -299,3 +299,41 @@ def baltruschat_rgb_transforms(norms):
         normalize,
     ])
     return train_transforms, test_transforms
+
+
+def get_bbox_rgb_transforms(norms):
+    normalize = transforms.Normalize(*norms)
+    bbox_transforms = transforms.Compose([transforms.ToTensor(), normalize])
+    train_nobbox_transforms = transforms.Compose([
+        transforms.Resize(256),
+        transforms.RandomResizedCrop(224, scale=(.7, 1.0)),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        normalize,
+    ])
+    test_nobbox_transforms = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        normalize,
+    ])
+    return train_nobbox_transforms, bbox_transforms, test_nobbox_transforms, bbox_transforms
+
+
+def get_bbox_grayscale_transforms(norms):
+    normalize = transforms.Normalize(*norms)
+    bbox_transforms = transforms.Compose([transforms.ToGrayscaleTensor(), normalize])
+    train_nobbox_transforms = transforms.Compose([
+        transforms.Resize(256),
+        transforms.RandomResizedCrop(224, scale=(.7, 1.0)),
+        transforms.RandomHorizontalFlip(),
+        ToGrayscaleTensor(),
+        normalize,
+    ])
+    test_nobbox_transforms = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        ToGrayscaleTensor(),
+        normalize,
+    ])
+    return train_nobbox_transforms, bbox_transforms, test_nobbox_transforms, bbox_transforms

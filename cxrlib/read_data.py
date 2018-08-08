@@ -17,7 +17,7 @@ from cxrlib import transforms as cxr_transforms
 
 
 class BBoxChestXrayDataSet(Dataset):
-    def __init__(self, data_dir, bbox_list_file, is_preprocessed=False, transform=None, convert_to='RGB'):
+    def __init__(self, data_dir, bbox_list_file, transform=None, convert_to='RGB'):
         """
         Get Dataset for bounding box images
 
@@ -50,7 +50,7 @@ class BBoxChestXrayDataSet(Dataset):
 
         self.transform = transform
         self.convert_to = convert_to
-        self.is_preprocessed = is_preprocessed
+        self.is_train = 'train' in bbox_list_file
 
     def __getitem__(self, index):
         """
@@ -63,14 +63,16 @@ class BBoxChestXrayDataSet(Dataset):
         labels = self.labels[index]
         boxes = self.boxes[index]
 
-        # XXX figure out how to integrate bbox transforms
-        if self.transform and not self.is_preprocessed:
-            image = Image.open(image_name).convert(self.convert_to)
-            image = self.transform(image)
-        elif not self.transform and not self.is_preprocessed:
-            image = Image.open(image_name).convert(self.convert_to)
+        image = Image.open(image_name).convert(self.convert_to)
+
+        if self.is_train:
+            img, boxes = cxr_transforms.random_flip(img, boxes)
+            img, boxes = cxr_transforms.random_crop(img, boxes)
+            img, boxes = cxr_transforms.resize(img, boxes, (224, 224))
         else:
-            image = torch.load(image_name)
+            img, boxes = cxr_transforms.resize(img, boxes, (256, 256))
+            img, boxes = cxr_transforms.center_crop(img, boxes, (224, 224))
+        image = self.transform(image)
 
         # We're using multi-crop here
         if image.ndimension() == 4:
@@ -172,7 +174,7 @@ class RandomDataset(Dataset):
 
 def _get_transforms(trans_type, norms, convert_to):
     """
-    :param trans_type: Can be guan, five_crop, openi, or baltruschat
+    :param trans_type: Can be guan, five_crop, openi, baltruschat, or bbox
     :param norms: Can be cxr14 or imagenet
     :param convert_to: Can be RGB or LA
     """
@@ -192,6 +194,9 @@ def _get_transforms(trans_type, norms, convert_to):
             train_transforms, test_transforms = cxr_transforms.baltruschat_rgb_transforms(norms)
         elif trans_type == 'openi':
             train_transforms, test_transforms = cxr_transforms.openi_rgb_transforms(norms)
+        elif trans_type == 'bbox':
+            return cxr_transforms.get_bbox_rgb_transforms(norms)
+
     elif convert_to == 'LA':
         if trans_type == 'five_crop':
             train_transforms, test_transforms = cxr_transforms.five_crop_grayscale_transforms(norms)
@@ -201,6 +206,8 @@ def _get_transforms(trans_type, norms, convert_to):
             train_transforms, test_transforms = cxr_transforms.baltruschat_grayscale_transforms(norms)
         elif trans_type == 'openi':
             train_transforms, test_transforms = cxr_transforms.openi_grayscale_transforms(norms)
+        elif trans_type == 'bbox':
+            return cxr_transforms.get_bbox_grayscale_transforms(norms)
 
     return train_transforms, test_transforms
 
@@ -274,6 +281,73 @@ def _get_loaders(images_path,
         return train_loader, valid_loader, test_loader
     else:
         return train_loader, test_loader
+
+
+def get_bbox_loaders(images_path,
+                     labels_dir,
+                     batch_size,
+                     convert_to,
+                     norms='cxr14')
+    """
+    Get data loaders for BBox CXR14
+
+    :param images_path: path to directory where all images are located
+    :param labels_dir: dir where dataset resides
+    :param batch_size: size of mini-batches for train and test sets
+    :param convert_to: convert images to RGB or LA (for grayscale)
+    :param norms: the dataset normalization standard we want to use. Accepts cxr14 and imagenet
+    """
+
+    train_labels_nobbox_path = os.path.join(labels_dir, 'bbox_train_nobbox.processed')
+    train_labels_bbox_path = os.path.join(labels_dir, 'bbox_train_withbbox.processed')
+    test_labels_nobbox_path = os.path.join(labels_dir, 'bbox_test_nobbox.processed')
+    test_labels_bbox_path = os.path.join(labels_dir, 'bbox_test_withbbox.processed')
+
+    train_transforms, train_bbox_transforms, test_transforms, test_bbox_transforms = _get_transforms('bbox', norms, convert_to)
+
+    train_dataset = ChestXrayDataSet(
+        data_dir=images_path,
+        image_list_file=train_labels_nobbox_path,
+        transform=train_transforms,
+        convert_to=convert_to,
+        is_preprocessed=is_preprocessed,
+    )
+    train_loader = torch.utils.data.DataLoader(
+        dataset=train_dataset, batch_size=batch_size,
+        shuffle=True, num_workers=num_workers, pin_memory=True
+    )
+    train_bbox_dataset = BBoxChestXrayDataSet(
+        data_dir=images_path,
+        image_list_file=train_labels_bbox_path,
+        transform=train_bbox_transforms,
+        convert_to=convert_to,
+    )
+    train_bbox_loader = torch.utils.data.DataLoader(
+        dataset=train_bbox_dataset, batch_size=batch_size,
+        shuffle=True, num_workers=num_workers, pin_memory=True
+    )
+    test_dataset = ChestXrayDataSet(
+        data_dir=images_path,
+        image_list_file=test_labels_nobbox_path,
+        transform=test_transforms,
+        convert_to=convert_to,
+        is_preprocessed=is_preprocessed,
+    )
+    test_loader = torch.utils.data.DataLoader(
+        dataset=test_dataset, batch_size=batch_size,
+        shuffle=False, num_workers=num_workers, pin_memory=True
+    )
+    test_bbox_dataset = BBoxChestXrayDataSet(
+        data_dir=images_path,
+        image_list_file=test_labels_bbox_path,
+        transform=test_bbox_transforms,
+        convert_to=convert_to,
+    )
+    test_bbox_loader = torch.utils.data.DataLoader(
+        dataset=test_bbox_dataset, batch_size=batch_size,
+        shuffle=True, num_workers=num_workers, pin_memory=True
+    )
+    return train_loader, train_bbox_loader, test_loader, test_bbox_loader
 
 
 def get_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14', is_preprocessed=False, get_validation_set=False, transform_type='guan'):
