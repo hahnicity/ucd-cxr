@@ -8,15 +8,9 @@ from torchvision import transforms
 from torchvision.models.resnet import resnet50
 
 from cxrlib.models.bottleneck_attention import resnet50ish
-from cxrlib.read_data import get_five_crop_loaders, get_guan_loaders
+from cxrlib.read_data import get_loaders
 from cxrlib.results import Reporting
-from cxrlib.run import RunModelWithTestAUCReporting
-
-
-class BAMRun(RunModelWithTestAUCReporting):
-    def post_epoch_actions(self):
-        super().post_epoch_actions()
-        self.lr_scheduler.step()
+from cxrlib.run import RunModelWithAUCAndValLR
 
 
 def main():
@@ -28,7 +22,7 @@ def main():
     parser.add_argument('--results-path', default=os.path.join(os.path.dirname(__file__), 'results'))
     parser.add_argument('--print-progress', action='store_true')
     parser.add_argument('--no-validation', action='store_true')
-    parser.add_argument('--loader', choices=['five_crop', 'guan'], default='guan')
+    parser.add_argument('--loader', choices=['five_crop', 'baltruschat', 'guan'], default='guan')
     parser.add_argument('--tmp-objs-path', default='tmp_save')
     # training options
     parser.add_argument('--epochs', default=50, type=int)
@@ -50,29 +44,24 @@ def main():
     else:
         is_preprocessed = False
 
-    if args.no_validation and args.loader == 'guan':
-        train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, is_preprocessed=is_preprocessed)
-        valid_loader = None
-    elif not args.no_validation and args.loader == 'guan':
-        train_loader, valid_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, is_preprocessed=is_preprocessed, get_validation_set=True)
-    elif args.no_validation and args.loader == 'five_crop':
-        train_loader, test_loader = get_five_crop_loaders(args.images_path, args.labels_path, args.batch_size, is_preprocessed=is_preprocessed)
+    if args.no_validation:
+        train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size, is_preprocessed=is_preprocessed, transform_type=args.loader)
         valid_loader = None
     else:
-        train_loader, valid_loader, test_loader = get_five_crop_loaders(args.images_path, args.labels_path, args.batch_size, is_preprocessed=is_preprocessed, get_validation_set=True)
+        train_loader, valid_loader, test_loader = get_loaders(args.images_path, args.labels_path, args.batch_size, is_preprocessed=is_preprocessed, get_validation_set=True, transform_type=args.loader)
 
     optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=.9, weight_decay=1e-4, nesterov=True)
-    scheduler = MultiStepLR(optimizer, [30, 40, 50])
+    lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=5, mode='min')
     criterion = torch.nn.BCEWithLogitsLoss()
-    reporting = Reporting(args.results_path, 'bam-resnet50ish-rgb-lr-{}-bs-{}'.format(args.learning_rate, args.batch_size))
+    reporting = Reporting(args.results_path, 'bam-resnet50-rgb-loader-{}-lr-{}-bs-{}'.format(args.loader, args.learning_rate, args.batch_size))
     reporting.register(model, 'model', False)
-    runner = BAMRun(
+    runner = RunModelWithAUCAndValLR(
         args,
         model,
         train_loader,
         test_loader,
         optimizer,
-        scheduler,
+        lr_scheduler,
         criterion,
         True if args.device == 'cuda' else False,
         reporting,
