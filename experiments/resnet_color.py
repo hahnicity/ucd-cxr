@@ -31,7 +31,6 @@ def main():
     parser.add_argument('-r', '--run-test-after-epoch', type=int, help='run testing auc calculations after epoch N', default=0)
     # model hyperparameters
     parser.add_argument('-lr', '--loss-rate', type=float, default=.001)
-    parser.add_argument('--nesterov', action='store_true')
     args = parser.parse_args()
 
     cuda_wrapper = lambda x: x.cuda() if args.device == 'cuda' else x
@@ -60,10 +59,10 @@ def main():
     else:
         train_loader, valid_loader, test_loader = get_loaders(args.images_path, args.labels_path, args.batch_size, is_preprocessed=is_preprocessed, get_validation_set=True, transform_type=args.loader)
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.loss_rate, momentum=.9, weight_decay=1e-4, nesterov=args.nesterov)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.loss_rate, weight_decay=1e-4, eps=1e-8)
     lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=5, mode='min')
     criterion = torch.nn.BCEWithLogitsLoss()
-    reporting = Reporting(args.results_path, 'resnet50-color-loader-{}-pretrained-{}-bs-{}-lr-{}-nesterov-{}'.format(args.loader, args.pretrained, args.batch_size, args.loss_rate, args.nesterov))
+    reporting = Reporting(args.results_path, 'resnet50-color-loader-{}-pretrained-{}-bs-{}-lr-{}-adam'.format(args.loader, args.pretrained, args.batch_size, args.loss_rate))
     reporting.register(model, 'model', False)
     runner = RunModelWithAUCAndValLR(
         args,
