@@ -17,12 +17,12 @@ from cxrlib import transforms as cxr_transforms
 
 
 class BBoxChestXrayDataSet(Dataset):
-    def __init__(self, data_dir, bbox_list_file, transform=None, convert_to='RGB'):
+    def __init__(self, data_dir, image_list_file, transform=None, convert_to='RGB'):
         """
         Get Dataset for bounding box images
 
         :param data_dir: path to image directory.
-        :param bbox_list_file: path to file where filenames are matched with bounding box coords
+        :param image_list_file: path to file where filenames are matched with bounding box coords
         :param is_preprocessed: if the data directory contains preprocessed information. If so do no transformations
         :param transform: optional transform to be applied on a sample.
         :param convert_to: convert the image to rgb (RGB) or grayscale (LA)
@@ -30,7 +30,7 @@ class BBoxChestXrayDataSet(Dataset):
         self.fnames = []
         self.boxes = []
         self.labels = []
-        with open(bbox_list_file, "r") as f:
+        with open(image_list_file, "r") as f:
             for line in f:
                 split = [i for i in line.strip().split() if i != 'nan']
                 # -15 because of the 14 GT annos plus 1 img filename
@@ -50,7 +50,7 @@ class BBoxChestXrayDataSet(Dataset):
 
         self.transform = transform
         self.convert_to = convert_to
-        self.is_train = 'train' in bbox_list_file
+        self.is_train = 'train' in image_list_file
 
     def __getitem__(self, index):
         """
@@ -88,7 +88,7 @@ class BBoxChestXrayDataSet(Dataset):
             return image, torch.FloatTensor(boxes), torch.FloatTensor(labels)
 
     def __len__(self):
-        return len(self.image_names)
+        return len(self.fnames)
 
 
 class ChestXrayDataSet(Dataset):
@@ -286,8 +286,9 @@ def _get_loaders(images_path,
 def get_bbox_loaders(images_path,
                      labels_dir,
                      batch_size,
+                     bbox_batch_size,
                      convert_to,
-                     norms='cxr14')
+                     norms='cxr14'):
     """
     Get data loaders for BBox CXR14
 
@@ -304,13 +305,13 @@ def get_bbox_loaders(images_path,
     test_labels_bbox_path = os.path.join(labels_dir, 'bbox_test_withbbox.processed')
 
     train_transforms, train_bbox_transforms, test_transforms, test_bbox_transforms = _get_transforms('bbox', norms, convert_to)
+    num_workers = multiprocessing.cpu_count()
 
     train_dataset = ChestXrayDataSet(
         data_dir=images_path,
         image_list_file=train_labels_nobbox_path,
         transform=train_transforms,
         convert_to=convert_to,
-        is_preprocessed=is_preprocessed,
     )
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset, batch_size=batch_size,
@@ -323,7 +324,7 @@ def get_bbox_loaders(images_path,
         convert_to=convert_to,
     )
     train_bbox_loader = torch.utils.data.DataLoader(
-        dataset=train_bbox_dataset, batch_size=batch_size,
+        dataset=train_bbox_dataset, batch_size=bbox_batch_size,
         shuffle=True, num_workers=num_workers, pin_memory=True
     )
     test_dataset = ChestXrayDataSet(
@@ -331,7 +332,6 @@ def get_bbox_loaders(images_path,
         image_list_file=test_labels_nobbox_path,
         transform=test_transforms,
         convert_to=convert_to,
-        is_preprocessed=is_preprocessed,
     )
     test_loader = torch.utils.data.DataLoader(
         dataset=test_dataset, batch_size=batch_size,
@@ -344,7 +344,7 @@ def get_bbox_loaders(images_path,
         convert_to=convert_to,
     )
     test_bbox_loader = torch.utils.data.DataLoader(
-        dataset=test_bbox_dataset, batch_size=batch_size,
+        dataset=test_bbox_dataset, batch_size=bbox_batch_size,
         shuffle=True, num_workers=num_workers, pin_memory=True
     )
     return train_loader, train_bbox_loader, test_loader, test_bbox_loader
