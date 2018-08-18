@@ -51,14 +51,14 @@ def main():
     else:
         train_loader, valid_loader, test_loader = get_loaders(args.images_path, args.labels_path, args.batch_size, is_preprocessed=is_preprocessed, get_validation_set=True, transform_type=args.loader)
 
-    optimizer = AdamW(model.parameters(), lr=args.learning_rate, weight_decay=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate, weight_decay=1e-4)
     if args.loader == 'five_crop':
         patience = 2
     else:
         patience = 5
-    lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=patience, mode='min')
+    lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=patience, mode='min')
     criterion = torch.nn.BCEWithLogitsLoss()
-    reporting = Reporting(args.results_path, 'bam-resnet50-rgb-loader-{}-lr-{}-bs-{}-adamw'.format(args.loader, args.learning_rate, args.batch_size))
+    reporting = Reporting(args.results_path, 'bam-resnet50-rgb-loader-{}-lr-{}-bs-{}-adam'.format(args.loader, args.learning_rate, args.batch_size))
     reporting.register(model, 'model', False)
     runner = RunModelWithAUCAndValLR(
         args,

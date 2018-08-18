@@ -50,10 +50,9 @@ class FocalLossWithAlpha(torch.nn.Module):
 
 
 class FocalLoss(torch.nn.Module):
-    def __init__(self, gamma, size_average=False):
+    def __init__(self, gamma):
         super().__init__()
         self.gamma = gamma
-        self.size_average = size_average
 
     def forward(self, input, target):
         """
@@ -71,10 +70,13 @@ class FocalLoss(torch.nn.Module):
         weights = (target * p + (1-target) * (1-p)).pow(self.gamma)
         loss = weights * loss
 
+        # XXX consider using sum
         return loss.mean()
 
 
 # XXX inverse is probably not the best name for this
+#
+# This is really just the same thing as the module above
 class InverseFocalLoss(torch.nn.Module):
     def __init__(self, beta):
         super().__init__()
