@@ -2,7 +2,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 import torch
-
 class AttentionGate(nn.Module):
     def __init__(self, feature_channels, gate_channels, hidden_channels):
         super(AttentionGate, self).__init__()
@@ -37,11 +36,7 @@ class AttentionGate(nn.Module):
         q_att = F.sigmoid(self.psi(F.relu(x + g)))
         alpha = F.upsample(q_att,mode='bilinear',size=feature.size()[2:])
         output = alpha.expand_as(feature) * feature
-        # Also leaving off Wy, but it doesn't seem to be used frequently.
         return output
-
-
-
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -94,11 +89,11 @@ class GuanResNet50_AG(torch.nn.Module):
         self.layer2 = self._make_layer(block, 128, 4, stride=2)
         self.layer3 = self._make_layer(block, 256, 6, stride=2)
         self.layer4 = self._make_layer(block, 512, 3, stride=2)
-        self.ag3 = AttentionGate(128*block.expansion, 512*block.expansion, 128*block.expansion)
-        self.ag4 = AttentionGate(256*block.expansion, 512*block.expansion, 256*block.expansion)
-        self.avgpool = nn.AvgPool2d(7, stride=1)
-        #self.fc = nn.Linear(512 * block.expansion,num_classes,bias = True)
+        self.attention = AttentionGate(1024,2048,16)#.cuda()
+        self.fc  = nn.Linear(3072,14,bias=True)#.cuda()
         self.sig = torch.nn.Sigmoid()
+        self.avgpool  = nn.AvgPool2d(7, stride=1)
+        self.avgpoolag = nn.AvgPool2d(14, stride=1)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -125,35 +120,41 @@ class GuanResNet50_AG(torch.nn.Module):
 
         return nn.Sequential(*layers)
 
+    def load_my_state_dict(self, state_dict):
+
+        own_state = self.state_dict()
+        for name, param in state_dict.items():
+            if name not in own_state:
+                 continue
+            # backwards compatibility for serialized parameters
+            if "fc" in name:
+                 continue
+            print("Loading")
+            print(name)
+            param = param.data
+            own_state[name].copy_(param)
 
     def forward(self, x):
-        #print(x.size())
         batch_size = x.size()[0]
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
 
-        x1  = self.layer1(x)
-        x2  = self.layer2(x1)
-        x3  = self.layer3(x2)
-        x4  = self.layer4(x3)
-        #print(x3.size())
-        #print(x4.size())
-        gate= AttentionGate(1024,2048,16).cuda()
-        ag = gate(x3,x4)
-        #print(ag.size())
-        #print(x4.size())
-        aggre1 = x4.view(batch_size,-1)
+        x  = self.layer1(x)
+        x  = self.layer2(x)
+        x  = self.layer3(x)
+        x3 = x
+        x  = self.layer4(x)
+        x4 = x
+        x  = self.avgpool(x)
+        ag = self.avgpoolag(self.attention(x3,x4))
+
+        aggre1 = x.view(batch_size,-1)
         aggre2 = ag.view(batch_size,-1)
+        aggre  = torch.cat((aggre1,aggre2),1)
 
-        aggre = torch.cat((aggre1,aggre2),1)
-
-        #aggre = self.avgpool(aggre)
-        #aggre = aggre.view(aggre.size(0), -1)
-        #print(aggre.size())
-        fc = nn.Linear(aggre.size(1),14,bias=True).cuda()
-        output = self.sig(fc(aggre))
-        #print(output.size())
+        output = self.sig(self.fc(aggre))
 
         return output
+
