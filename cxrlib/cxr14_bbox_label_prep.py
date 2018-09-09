@@ -1,5 +1,5 @@
 """
-bbox_data_preprocessing
+cxr14_bbox_label_prep
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 Process the existing bbox file into something more standard and create
