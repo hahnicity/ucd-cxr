@@ -4,10 +4,11 @@ import sys
 import time
 import math
 
-import encoder
 import numpy as np
 import torch
 import torch.nn as nn
+
+from retinanet import encoder
 
 
 def get_mean_and_std(dataset, max_load=10000):

@@ -1,9 +1,9 @@
 '''RetinaFPN in PyTorch.'''
 import torch
+from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
-
-from torch.autograd import Variable
+from torchvision.models import resnet50, resnet101
 
 
 class Bottleneck(nn.Module):
@@ -110,11 +110,28 @@ class FPN(nn.Module):
         return p3, p4, p5, p6, p7
 
 
-def FPN50():
-    return FPN(Bottleneck, [3,4,6,3])
+def FPN50(pretrained=True):
+    fpn = FPN(Bottleneck, [3,4,6,3])
+    if pretrained:
+        premodel = resnet50(pretrained=True).state_dict()
+        fpn_dict = fpn.state_dict()
+        for key in premodel.keys():
+            if not key.startswith('fc'):
+                fpn_dict[key] = premodel[key]
+        fpn.load_state_dict(fpn_dict)
+    return fpn
 
-def FPN101():
-    return FPN(Bottleneck, [2,4,23,3])
+
+def FPN101(pretrained=True):
+    fpn = FPN(Bottleneck, [2,4,23,3])
+    if pretrained:
+        premodel = resnet101(pretrained=True).state_dict()
+        fpn_dict = fpn.state_dict()
+        for key in premodel.keys():
+            if not key.startswith('fc'):
+                fpn_dict[key] = premodel[key]
+        fpn.load_state_dict(fpn_dict)
+    return fpn
 
 
 def test():

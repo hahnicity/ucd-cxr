@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.nn.init as init
 
-from fpn import FPN50
+from retinanet.fpn import FPN50
 
 
 class RetinaNetClassifier(nn.Module):
@@ -20,6 +21,24 @@ class RetinaNetClassifier(nn.Module):
         return self.fc(torch.cat(preds, 1))
 
 
+def retinanet_cls50(pretrained=True):
+    fpn = FPN50(pretrained=pretrained)
+    fpn_dict = fpn.state_dict()
+    net = RetinaNetClassifier(fpn)
+    # This is the method used for initializing the weights in retinanet in
+    # scripts/get_state_dict.py
+    for m in net.modules():
+        if isinstance(m, nn.Conv2d):
+            init.normal(m.weight, mean=0, std=0.01)
+            if m.bias is not None:
+                init.constant(m.bias, 0)
+        elif isinstance(m, nn.BatchNorm2d):
+            m.weight.data.fill_(1)
+            m.bias.data.zero_()
+    net.fpn.load_state_dict(fpn_dict)
+    return net
+
+
 def test():
     net = RetinaNetClassifier(FPN50())
     preds = net(torch.autograd.Variable(torch.randn(2,3,224,224)))
@@ -28,4 +47,4 @@ def test():
     preds.backward(preds_grads)
 
 
-test()
+#test()

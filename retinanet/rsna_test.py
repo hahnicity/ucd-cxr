@@ -6,9 +6,9 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-from encoder import DataEncoder
-from datagen import ListDataset
-from retinanet import RetinaNet
+from retinanet.encoder import DataEncoder
+from retinanet.datagen import ListDataset
+from retinanet.retinanet import RetinaNet
 
 
 def main():

@@ -2,12 +2,12 @@ from __future__ import print_function
 
 import numpy as np
 import torch
+from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 
-import encoder
-from utils import box_iou, kaggle_iou, one_hot_embedding
-from torch.autograd import Variable
+from retinanet import encoder
+from retinanet.utils import box_iou, kaggle_iou, one_hot_embedding
 
 
 class FocalLoss(nn.Module):

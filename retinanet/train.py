@@ -12,10 +12,10 @@ import torch.backends.cudnn as cudnn
 import torchvision
 import torchvision.transforms as transforms
 
-from datagen import ListDataset
-from loss import BasicLoss, FocalLoss, IoULoss, StatLoss
-from retinanet import RetinaNet
-from utils import kaggle_iou
+from retinanet.datagen import ListDataset
+from retinanet.loss import BasicLoss, FocalLoss, IoULoss, StatLoss
+from retinanet.retinanet import RetinaNet
+from retinanet.utils import kaggle_iou
 
 
 # XXX for now exclude test eval

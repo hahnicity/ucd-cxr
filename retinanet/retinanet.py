@@ -1,13 +1,13 @@
 import torch
+from torch.autograd import Variable
 import torch.nn as nn
 
-from fpn import FPN50
-from torch.autograd import Variable
+from retinanet.fpn import FPN50
 
 
 class RetinaNet(nn.Module):
     num_anchors = 9
-    
+
     def __init__(self, num_classes=20):
         super(RetinaNet, self).__init__()
         self.fpn = FPN50()

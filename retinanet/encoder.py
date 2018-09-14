@@ -4,7 +4,7 @@ Encode object boxes and labels to their respective anchors
 import math
 import torch
 
-from utils import meshgrid, box_iou, box_nms, change_box_order
+from retinanet.utils import meshgrid, box_iou, box_nms, change_box_order
 
 
 class DataEncoder:
