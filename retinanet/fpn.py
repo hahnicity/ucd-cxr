@@ -119,8 +119,9 @@ def FPN101():
 
 def test():
     net = FPN50()
-    fms = net(Variable(torch.randn(1,3,600,600)))
+    fms = net(Variable(torch.randn(16,3,224,224)))
     for fm in fms:
+        import IPython; IPython.embed()
         print(fm.size())
 
 #test()

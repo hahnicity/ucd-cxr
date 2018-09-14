@@ -28,7 +28,7 @@ parser.add_argument('--lr', default=1e-4, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--epochs', type=int, default=50)
 parser.add_argument('-s', '--save-to', default='ckpt.pth')
-parser.add_argument('-l', '--load-from', default='ckpt.pth')
+parser.add_argument('-l', '--load-from', default='checkpoint/ckpt.pth')
 parser.add_argument('-b', '--batch-size', default=16, type=int)
 args = parser.parse_args()
 
@@ -58,7 +58,7 @@ net.load_state_dict(torch.load('./model/guan.pth'))
 best_perf = 0
 if args.resume:
     print('==> Resuming from checkpoint..')
-    checkpoint = torch.load('./checkpoint/{}'.format(args.load_from))
+    checkpoint = torch.load(args.load_from)
     net.load_state_dict(checkpoint['net'])
     best_perf = checkpoint['perf']
     start_epoch = checkpoint['epoch']
