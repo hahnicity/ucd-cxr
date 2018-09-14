@@ -30,6 +30,7 @@ parser.add_argument('--epochs', type=int, default=50)
 parser.add_argument('-s', '--save-to', default='ckpt.pth')
 parser.add_argument('-l', '--load-from', default='checkpoint/ckpt.pth')
 parser.add_argument('-b', '--batch-size', default=16, type=int)
+parser.add_argument('--ask-to-save', action='store_true')
 args = parser.parse_args()
 
 assert torch.cuda.is_available(), 'Error: CUDA not found!'
@@ -141,6 +142,19 @@ def test(epoch, best_perf):
             os.mkdir('checkpoint')
         torch.save(state, './checkpoint/{}'.format(args.save_to))
         best_perf = perf
+    if args.ask_to_save:
+        should_save = input("should we save the classifier? [y/n] ")
+        if should_save == 'y':
+            state = {
+                'net': net.module.state_dict(),
+                'perf': perf,
+                'epoch': epoch,
+                'loss': test_loss,
+                'perf_reasons': perf_reasons,
+            }
+            if not os.path.isdir('checkpoint'):
+                os.mkdir('checkpoint')
+            torch.save(state, './checkpoint/{}'.format(args.save_to))
     return best_perf
 
 

@@ -8,6 +8,19 @@ import torchvision.transforms as transforms
 from PIL import Image, ImageDraw
 
 
+def resize_boxes(boxes, cur_size, new_size):
+    """
+    Resize boxes to a given size. Currently this only supports square images
+
+    :param boxes: (tensor) object boxes
+    :param cur_size: int for the current size of the img (NxN)
+    :param new_size: int for the new size of the img
+    """
+    w, h = cur_size, cur_size
+    sw = sh = float(new_size) / cur_size
+    return boxes * torch.FloatTensor([sw, sh, sw, sh])
+
+
 def resize(img, boxes, size, max_size=1000):
     '''Resize the input PIL image to the given size.
 

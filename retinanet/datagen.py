@@ -113,7 +113,7 @@ class ListDataset(data.Dataset):
             return img, boxes, labels
         elif not self.train and not self.val:
             img = self.transform(img)
-            return img
+            return img, fname.replace('.dcm', '')
         else:
             img, boxes = resize(img, boxes, size)
             img, boxes = center_crop(img, boxes, (size,size))

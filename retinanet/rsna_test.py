@@ -1,4 +1,5 @@
 import argparse
+import csv
 import multiprocessing
 
 import torch
@@ -9,6 +10,7 @@ from torchvision import transforms
 from retinanet.encoder import DataEncoder
 from retinanet.datagen import ListDataset
 from retinanet.retinanet import RetinaNet
+from retinanet.transform import resize_boxes
 
 
 def main():
@@ -28,18 +30,32 @@ def main():
         transforms.ToTensor(),
     ])
     data = ListDataset(args.test_image_dir, None, False, test_transforms, input_size)
-    loader = DataLoader(data, batch_size=1, num_workers=multiprocessing.cpu_count())
+    loader = DataLoader(data, batch_size=16, num_workers=multiprocessing.cpu_count())
     encoder = DataEncoder()
     net.eval()
-    with open('kaggle-submission.txt', 'w') as sub_file:
-        # XXX write header
-        for inputs in loader:
-            inputs = Variable(inputs, volatile=True).cuda()
-            loc_preds, cls_preds = net(inputs)
-            boxes, labels = encoder.decode(loc_preds.data.detach().cpu().squeeze(), cls_preds.data.detach().cpu().squeeze(), (input_size, input_size))
-            all_lab = set(labels.numpy().ravel())
-            print(all_lab)
-            print(boxes.size())
+    with torch.no_grad():
+        with open('kaggle-submission.txt', 'w') as sub_file:
+            writer = csv.writer(sub_file)
+            writer.writerow(['patientId', 'PredictionString'])
+            for inputs, patients in loader:
+                inputs = Variable(inputs, volatile=True).cuda()
+                loc_preds, cls_preds = net(inputs)
+                for i in range(len(loc_preds)):
+                    boxes, labels = encoder.decode(loc_preds[i], cls_preds[i], input_size)
+                    boxes = boxes.cpu()
+                    if boxes.size(0) > 0:
+                        boxes = boxes.squeeze(1)
+                        boxes = resize_boxes(boxes, 224, 1024)
+                    boxes = boxes.numpy()
+
+                    boxes_out = []
+                    for box_idx, box in enumerate(boxes):
+                        boxes_out.append(labels[box_idx].cpu().numpy()[0])
+                        boxes_out.extend([box[0], box[1]])
+                        width = box[2] - box[0]
+                        height = box[3] - box[1]
+                        boxes_out.extend([width, height])
+                    writer.writerow([patients[i]] + [" ".join([str(j) for j in boxes_out])])
 
 
 if __name__ == "__main__":
