@@ -35,10 +35,10 @@ def main():
     train_loader, test_loader = get_guan_loaders(args.images_path, args.labels_path, args.batch_size)
     cuda_wrapper = lambda x: x.cuda() if args.device == 'cuda' else x
     model = cuda_wrapper(torch.nn.DataParallel(model))
-    optimizer = torch.optim.SGD(model.parameters(), lr=.01, momentum=.9, weight_decay=1e-4)
+    optimizer = torch.optim.SGD(model.parameters(), lr=.01, momentum=.9, weight_decay=1e-4, nesterov=True)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 20)
     criterion = torch.nn.BCELoss()
-    reporting = Reporting(args.results_path)
+    reporting = Reporting(args.results_path, 'guan-color-pretrained-{}'.format(args.pretrained))
     reporting.register(model, 'model', False)
     runner = GuanRun(
         args,
@@ -55,7 +55,7 @@ def main():
     del train_loader
     torch.cuda.empty_cache()
     runner.generic_test_epoch()
-    reporting.save_all('guan-color-pretrained-{}'.format(args.pretrained))
+    reporting.save_all()
 
 
 if __name__ == "__main__":

@@ -24,8 +24,8 @@ def process_file(train_input_filepath, train_output_filepath, validation_output_
             patient, x, y, w, h, cls = l
             if cls == '0':
                 x_min, y_min, y_max, x_max = [0] * 4
-                # I think retinanet ignores things with -1
-                cls = -1
+                # I think retinanet ignores things < 0
+                cls = -2
             else:
                 x_min = float(x)
                 y_min = float(y)
