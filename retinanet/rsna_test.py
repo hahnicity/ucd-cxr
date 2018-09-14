@@ -28,6 +28,7 @@ def main():
         transforms.Resize(input_size),
         #transforms.CenterCrop(input_size),
         transforms.ToTensor(),
+        transforms.Normalize((0.485,0.456,0.406), (0.229,0.224,0.225))
     ])
     data = ListDataset(args.test_image_dir, None, False, test_transforms, input_size)
     loader = DataLoader(data, batch_size=16, num_workers=multiprocessing.cpu_count())
