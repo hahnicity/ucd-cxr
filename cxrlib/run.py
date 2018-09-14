@@ -195,8 +195,7 @@ class RunModel(object):
         AUROC_avg = np.array(AUROCs).mean()
         self.reporting.update('test_auc', AUROC_avg)
         if self.print_progress:
-            print("")
-            print("Test AUC: {}".format(AUROC_avg))
+            print("\nTest AUC: {}\n".format(AUROC_avg))
 
     def pre_train_actions(self):
         """

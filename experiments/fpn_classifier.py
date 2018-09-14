@@ -8,7 +8,7 @@ from torchvision import transforms
 from cxrlib.init import kaiming_init, xavier_init
 from cxrlib.read_data import get_loaders
 from cxrlib.results import Reporting
-from cxrlib.run import RunModel
+from cxrlib.run import RunModelWithTestAUCReporting
 from retinanet.retinanet_cxr14 import retinanet_cls50
 
 
@@ -27,7 +27,7 @@ def main():
     parser.add_argument('--batch-size', default=16, type=int)
     parser.add_argument('-r', '--run-test-after-epoch', type=int, help='run testing auc calculations after epoch N', default=0)
     # model hyperparameters
-    parser.add_argument('-lr', '--loss-rate', type=float, default=.001)
+    parser.add_argument('-lr', '--learn-rate', type=float, default=.001)
     parser.add_argument('--nesterov', action='store_true')
     args = parser.parse_args()
 
@@ -48,12 +48,12 @@ def main():
     train_loader, test_loader = get_loaders(args.images_path, args.labels_path, args.batch_size, convert_to='RGB', is_preprocessed=is_preprocessed, transform_type=args.loader)
     valid_loader = None
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.loss_rate, momentum=.9, weight_decay=1e-4, nesterov=args.nesterov)
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.learn_rate, momentum=.9, weight_decay=1e-4, nesterov=args.nesterov)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 20)
     criterion = torch.nn.BCEWithLogitsLoss()
-    reporting = Reporting(args.results_path, 'fpn50')
+    reporting = Reporting(args.results_path, 'fpn50-nesterov-{}-lr-{}-bs-{}'.format(args.nesterov, args.learn_rate, args.batch_size))
     reporting.register(model, 'model', False)
-    runner = RunModel(
+    runner = RunModelWithTestAUCReporting(
         args,
         model,
         train_loader,
