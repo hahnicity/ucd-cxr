@@ -29,11 +29,12 @@ def main():
     # model hyperparameters
     parser.add_argument('-lr', '--learn-rate', type=float, default=.001)
     parser.add_argument('--nesterov', action='store_true')
+    parser.add_argument('-f', '--focus-on', default='Pneumonia')
     args = parser.parse_args()
 
     cuda_wrapper = lambda x: x.cuda() if args.device == 'cuda' else x
     if not args.load_openi_model:
-        model = retinanet_cls50(pretrained=True)
+        model = retinanet_cls50(pretrained=True, num_classes=14 if not args.focus_on else 1)
         model = cuda_wrapper(torch.nn.DataParallel(model))
     elif args.load_openi_model:
         model = torch.load(args.load_openi_model)
@@ -45,7 +46,7 @@ def main():
     else:
         is_preprocessed = False
 
-    train_loader, test_loader = get_loaders(args.images_path, args.labels_path, args.batch_size, convert_to='RGB', is_preprocessed=is_preprocessed, transform_type=args.loader)
+    train_loader, test_loader = get_loaders(args.images_path, args.labels_path, args.batch_size, convert_to='RGB', is_preprocessed=is_preprocessed, transform_type=args.loader, focus_on=args.focus_on)
     valid_loader = None
 
     optimizer = torch.optim.SGD(model.parameters(), lr=args.learn_rate, momentum=.9, weight_decay=1e-4, nesterov=args.nesterov)

@@ -8,6 +8,7 @@ from time import time
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 from cxrlib.results import compute_AUCs
 
@@ -166,11 +167,7 @@ class RunModel(object):
         self.reporting.update('validation_auc', AUROC_avg)
         self.post_validation_actions()
 
-    def generic_test_epoch(self):
-        """
-        Run a test epoch. At the end, returns all batch predictions and ground truth
-        labels.
-        """
+    def _test_epoch(self):
         self.model.eval()
         gt = None
         pred = None
@@ -183,6 +180,9 @@ class RunModel(object):
                 # we need to support this
                 inp = self.cuda_async_wrapper(torch.autograd.Variable(inp.view(-1, c, h, w)))
                 # XXX eventually output will need to handle multi-crop
+                #
+                # XXX actually we may have been doing testing incorrectly because
+                # we weren't applying sigmoid... sigh
                 output = self.model(inp)
                 if pred is None:
                     pred = output.data
@@ -190,7 +190,14 @@ class RunModel(object):
                 else:
                     pred = torch.cat((pred, output.data), 0)
                     gt = torch.cat((gt, target), 0)
+        return gt, pred
 
+    def generic_test_epoch(self):
+        """
+        Run a test epoch. At the end, returns all batch predictions and ground truth
+        labels.
+        """
+        gt, pred = self._test_epoch()
         AUROCs = compute_AUCs(gt, pred)
         AUROC_avg = np.array(AUROCs).mean()
         self.reporting.update('test_auc', AUROC_avg)

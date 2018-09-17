@@ -12,7 +12,7 @@ import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-from cxrlib.constants import CXR14_LA_NORM, CXR14_RGB_NORM, IMAGENET_NORM
+from cxrlib.constants import CLASS_NAMES, CXR14_LA_NORM, CXR14_RGB_NORM, IMAGENET_NORM
 from cxrlib import transforms as cxr_transforms
 
 
@@ -92,7 +92,7 @@ class BBoxChestXrayDataSet(Dataset):
 
 
 class ChestXrayDataSet(Dataset):
-    def __init__(self, data_dir, image_list_file, is_preprocessed=False, transform=None, convert_to='RGB'):
+    def __init__(self, data_dir, image_list_file, is_preprocessed=False, transform=None, convert_to='RGB', focus_on=None):
         """
         Args:
             data_dir: path to image directory.
@@ -101,15 +101,24 @@ class ChestXrayDataSet(Dataset):
             is_preprocessed: if the data directory contains preprocessed information. If so do no transformations
             transform: optional transform to be applied on a sample.
             convert_to: convert the image to rgb (RGB) or grayscale (LA)
+            focus_on: focus on a specific class
         """
         image_names = []
         labels = []
+        if focus_on and focus_on not in CLASS_NAMES:
+            raise Exception('focus_on var must be set to be one of: {}'.format(CLASS_NAMES))
+        if focus_on:
+            focus_idx = CLASS_NAMES.index(focus_on)
+
         with open(image_list_file, "r") as f:
             for line in f:
                 items = line.split()
-                image_name= items[0]
-                label = items[1:]
-                label = [int(i) for i in label]
+                image_name = items[0]
+                if focus_on:
+                    label = [int(items[1:][focus_idx])]
+                else:
+                    label = items[1:]
+                    label = [int(i) for i in label]
                 image_name = os.path.join(data_dir, image_name)
                 image_names.append(image_name)
                 labels.append(label)
@@ -221,7 +230,8 @@ def _get_loaders(images_path,
                  train_transforms,
                  test_transforms,
                  is_preprocessed,
-                 get_validation_set):
+                 get_validation_set,
+                 focus_on):
     """
     Get data loaders for CXR14 or OpenI
 
@@ -237,6 +247,7 @@ def _get_loaders(images_path,
     :param test_transforms: Compose object with test transformations
     :param is_preprocessed: is the dataset preprocessed? Does it need transforms?
     :param get_validation_set: True/False if we want a validation set
+    :param focus_on: XXX
     """
 
     if get_validation_set:
@@ -250,6 +261,7 @@ def _get_loaders(images_path,
         transform=train_transforms,
         convert_to=convert_to,
         is_preprocessed=is_preprocessed,
+        focus_on=focus_on,
     )
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset, batch_size=batch_size,
@@ -261,6 +273,7 @@ def _get_loaders(images_path,
         transform=test_transforms,
         convert_to=convert_to,
         is_preprocessed=is_preprocessed,
+        focus_on=focus_on,
     )
     test_loader = torch.utils.data.DataLoader(
         dataset=test_dataset, batch_size=batch_size,
@@ -273,6 +286,7 @@ def _get_loaders(images_path,
             transform=train_transforms,
             convert_to=convert_to,
             is_preprocessed=is_preprocessed,
+            focus_on=focus_on,
         )
         valid_loader = torch.utils.data.DataLoader(
             dataset=valid_dataset, batch_size=batch_size,
@@ -350,7 +364,7 @@ def get_bbox_loaders(images_path,
     return train_loader, train_bbox_loader, test_loader, test_bbox_loader
 
 
-def get_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14', is_preprocessed=False, get_validation_set=False, transform_type='guan'):
+def get_loaders(images_path, labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='imagenet', is_preprocessed=False, get_validation_set=False, transform_type='guan', focus_on=None):
     """
     Get data loaders for either CXR14 or OpenI
 
@@ -363,9 +377,10 @@ def get_loaders(images_path, labels_path, batch_size, num_workers=multiprocessin
     :param is_preprocessed: is the dataset preprocessed? Does it need transforms?
     :param get_validation_set: Return the validation loader or no?
     :param transform_type: The type of transforms we want to perform on our image choices: openi, guan, five_crop, baltruschat
+    :param focus_on: XXX
     """
     train_transforms, test_transforms = _get_transforms(transform_type, norms, convert_to)
-    return _get_loaders(images_path, labels_path, batch_size, num_workers, convert_to, norms, train_transforms, test_transforms, is_preprocessed, get_validation_set)
+    return _get_loaders(images_path, labels_path, batch_size, num_workers, convert_to, norms, train_transforms, test_transforms, is_preprocessed, get_validation_set, focus_on)
 
 
 def get_openi_loaders(images_path, train_labels_path, valid_labels_path, test_labels_path, batch_size, num_workers=multiprocessing.cpu_count(), convert_to='RGB', norms='cxr14', is_preprocessed=False):

@@ -21,10 +21,10 @@ class RetinaNetClassifier(nn.Module):
         return self.fc(torch.cat(preds, 1))
 
 
-def retinanet_cls50(pretrained=True):
+def retinanet_cls50(pretrained=True, num_classes=14):
     fpn = FPN50(pretrained=pretrained)
     fpn_dict = fpn.state_dict()
-    net = RetinaNetClassifier(fpn)
+    net = RetinaNetClassifier(fpn, num_classes=num_classes)
     # This is the method used for initializing the weights in retinanet in
     # scripts/get_state_dict.py
     for m in net.modules():
