@@ -30,7 +30,8 @@ parser.add_argument('--epochs', type=int, default=50)
 parser.add_argument('-s', '--save-to', default='ckpt.pth')
 parser.add_argument('-l', '--load-from', default='checkpoint/ckpt.pth')
 parser.add_argument('-b', '--batch-size', default=16, type=int)
-parser.add_argument('--ask-to-save', action='store_true')
+parser.add_argument('--ask-to-save', action='store_true', help="ask to save a model after test results regardless of how high iou is")
+parser.add_argument('--test-output-file', default='testing-results.txt')
 args = parser.parse_args()
 
 assert torch.cuda.is_available(), 'Error: CUDA not found!'
@@ -155,6 +156,8 @@ def test(epoch, best_perf):
             if not os.path.isdir('checkpoint'):
                 os.mkdir('checkpoint')
             torch.save(state, './checkpoint/{}'.format(args.save_to))
+    with open(args.test_output_file, 'w+a') as results_output:
+        results_output.write("epoch: {} loss: {} iou: {}\nreasons: {}\n".format(epoch, loss, perf, perf_reasons))
     return best_perf
 
 
