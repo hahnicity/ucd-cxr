@@ -13,8 +13,8 @@ import torch.nn as nn
 import torch.nn.init as init
 from torchvision.models import resnet50
 
-from fpn import FPN50
-from retinanet import RetinaNet
+from retinanet.fpn import FPN50
+from retinanet.retinanet import RetinaNet
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-n', '--num-classes', type=int, default=20)
@@ -26,7 +26,11 @@ print('Loading pretrained ResNet50 model..')
 if not args.model:
     d = resnet50(pretrained=True).state_dict()
 else:
-    d = torch.load(args.model).module.model.state_dict()
+    try:
+        model = torch.load(args.model).module.model
+    except:
+        model = torch.load(args.model).module.fpn
+    d = model.state_dict()
 
 print('Loading into FPN50..')
 fpn = FPN50()
@@ -50,5 +54,5 @@ pi = 0.01
 init.constant(net.cls_head[-1].bias, -math.log((1-pi)/pi))
 
 net.fpn.load_state_dict(dd)
-torch.save(net.state_dict(), 'model/{}'.format(args.output))
+torch.save(net.state_dict(), args.output)
 print('Done!')

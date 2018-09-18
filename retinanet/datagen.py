@@ -23,7 +23,7 @@ from retinanet.transform import resize, random_flip, random_crop, center_crop
 
 
 class ListDataset(data.Dataset):
-    def __init__(self, root, list_file, train, transform, input_size, val=False):
+    def __init__(self, root, list_file, train, transform, input_size, val=False, only_uni_or_bilateral=False):
         '''
         Args:
           root: (str) ditectory to images.
@@ -32,6 +32,7 @@ class ListDataset(data.Dataset):
           transform: ([transforms]) image transforms.
           input_size: (int) model input size.
           val: (bool) is this a validation dataset?
+          only_uni_or_bilateral: (bool) only get unilateral or bilaterial pneumonia
         '''
         self.root = root
         self.train = train
@@ -54,14 +55,17 @@ class ListDataset(data.Dataset):
         # open the indexer and get all images in the set
         with open(list_file) as f:
             lines = f.readlines()
-            self.num_samples = len(lines)
 
+        self.num_samples = 0
         for line in lines:
             splited = line.strip().split(',')
-            # add filename
-            self.fnames.append(splited[0])
             # figure out how many bounding boxes are in an image
             num_boxes = (len(splited) - 1) // 5
+            if only_uni_or_bilateral and num_boxes > 2:
+                continue
+            self.num_samples += 1
+            # add filename
+            self.fnames.append(splited[0])
             box = []
             label = []
             # get all stats for each box. Each box should have 4 position identifiers

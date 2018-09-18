@@ -3,7 +3,7 @@ import torch
 from torch.autograd import Variable
 import torchvision.transforms as transforms
 
-from retinanet.retinanet import RetinaNet
+from retinanet.retinanet_bbox import RetinaNet
 from retinanet.encoder import DataEncoder
 
 

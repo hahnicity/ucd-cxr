@@ -14,7 +14,7 @@ import csv
 from numpy.random import choice
 
 
-def process_file(train_input_filepath, train_output_filepath, validation_output_filepath, validation_percent):
+def process_file(train_input_filepath, train_output_filepath, validation_output_filepath, validation_frac):
     patient_dict = {}
     with open(train_input_filepath, "r") as f:
         reader = csv.reader(f)
@@ -43,7 +43,7 @@ def process_file(train_input_filepath, train_output_filepath, validation_output_
 
     # randomly choose patients to be in validation set
     train_n = len(patient_dict)
-    validation_n = int(train_n * validation_percent)
+    validation_n = int(train_n * validation_frac)
     validation_patients = choice(list(patient_dict.keys()), size=validation_n)
 
     with open(train_output_filepath, 'w') as f_train:
@@ -62,9 +62,9 @@ def main():
     parser.add_argument('train_input_filepath')
     parser.add_argument('train_output_filepath')
     parser.add_argument('validation_output_filepath')
-    parser.add_argument('--validation-percent', type=float, default=.2)
+    parser.add_argument('--validation-frac', type=float, default=.2)
     args = parser.parse_args()
-    process_file(args.train_input_filepath, args.train_output_filepath, args.validation_output_filepath, args.validation_percent)
+    process_file(args.train_input_filepath, args.train_output_filepath, args.validation_output_filepath, args.validation_frac)
 
 
 if __name__ == "__main__":

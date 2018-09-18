@@ -9,7 +9,7 @@ from torchvision import transforms
 
 from retinanet.encoder import DataEncoder
 from retinanet.datagen import ListDataset
-from retinanet.retinanet import RetinaNet
+from retinanet.retinanet_bbox import RetinaNet
 from retinanet.transform import resize_boxes
 
 
