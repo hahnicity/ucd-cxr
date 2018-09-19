@@ -11,6 +11,7 @@ import os
 import sys
 import random
 
+from imblearn.under_sampling import RandomUnderSampler
 import numpy as np
 from PIL import Image
 import pydicom
@@ -23,7 +24,7 @@ from retinanet.transform import resize, random_flip, random_crop, center_crop
 
 
 class ListDataset(data.Dataset):
-    def __init__(self, root, list_file, train, transform, input_size, val=False, only_uni_or_bilateral=False):
+    def __init__(self, root, list_file, train, transform, input_size, val=False, only_uni_or_bilateral=False, undersample=None):
         '''
         Args:
           root: (str) ditectory to images.
@@ -33,6 +34,7 @@ class ListDataset(data.Dataset):
           input_size: (int) model input size.
           val: (bool) is this a validation dataset?
           only_uni_or_bilateral: (bool) only get unilateral or bilaterial pneumonia
+          undersample: (float) undersample normal obs to a ratio of abnormal. Set as None if undesired for use
         '''
         self.root = root
         self.train = train
@@ -80,6 +82,21 @@ class ListDataset(data.Dataset):
                 label.append(int(c))
             self.boxes.append(torch.Tensor(box))
             self.labels.append(torch.LongTensor(label))
+
+        if undersample is not None:
+            rus_labels = np.array([0 if 0 not in label.numpy() else 1 for label in self.labels])
+            minority_len = len(rus_labels[rus_labels == 1])
+            rus_idx = np.arange(0, len(self.labels)).reshape(-1, 1)
+            # add replacement or no?
+            rus = RandomUnderSampler(ratio={0: int(minority_len*undersample), 1: minority_len}, random_state=1)
+            x, _ = rus.fit_sample(rus_idx, rus_labels)
+            # add index to x so we can keep track of what gets shuffled
+            x = x[:,0]
+            np.random.shuffle(x)
+            self.num_samples = len(x)
+            self.boxes = [self.boxes[i] for i in x]
+            self.labels = [self.labels[i] for i in x]
+            self.fnames = [self.fnames[i] for i in x]
 
     def __getitem__(self, idx):
         '''Load image.

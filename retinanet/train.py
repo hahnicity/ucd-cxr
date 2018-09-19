@@ -35,6 +35,7 @@ parser.add_argument('--ask-to-save', action='store_true', help="ask to save a mo
 parser.add_argument('--test-output-file', default='testing-results.txt')
 parser.add_argument('--only-uni-or-bilateral', action='store_true', help='only train on unilateral or bilateral pneumonias')
 parser.add_argument('--save-on', choices=['iou', 'loss'], help='save model based on test performance on iou or loss')
+parser.add_argument('-u', '--undersample', type=float, help='undersample majority class with this ratio to the minority class')
 args = parser.parse_args()
 
 assert torch.cuda.is_available(), 'Error: CUDA not found!'
@@ -49,7 +50,7 @@ transform = transforms.Compose([
 ])
 
 trainset = ListDataset(root=args.image_dir,
-                       list_file=args.train_list, train=True, transform=transform, input_size=224, only_uni_or_bilateral=args.only_uni_or_bilateral)
+                       list_file=args.train_list, train=True, transform=transform, input_size=224, only_uni_or_bilateral=args.only_uni_or_bilateral, undersample=args.undersample)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=8, collate_fn=trainset.collate_fn)
 
 testset = ListDataset(root=args.image_dir,
@@ -173,7 +174,7 @@ class RunModel(object):
                 torch.save(state, './checkpoint/{}'.format(args.save_to))
 
         with open(args.test_output_file, 'a') as results_output:
-            results_output.write("epoch: {} loss: {} iou: {}\nreasons: {}\n".format(epoch, loss, test_iou, perf_reasons))
+            results_output.write("epoch: {} loss: {} iou: {}\nreasons: {}\n".format(epoch, test_loss, test_iou, perf_reasons))
 
 
 def stat_loss_run():
@@ -209,3 +210,4 @@ def focal_loss_run():
 
 #alternating_loss_run()
 focal_loss_run()
+#stat_loss_run()
