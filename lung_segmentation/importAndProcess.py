@@ -61,13 +61,20 @@ class visualize(object):
 
 
 class lungSegmentDataset(Dataset):
-    def __init__(self, image_path, leftmask_path, rightmask_path, imagetransform=None,
-    labeltransform=None):
+    def __init__(self,
+                 image_path,
+                 leftmask_path,
+                 rightmask_path,
+                 imagetransform=None,
+                 labeltransform=None,
+                 convert_to='L'):
         self.image_path = image_path
         self.leftmask_path = leftmask_path
         self.rightmask_path = rightmask_path
         self.imgtransform = imagetransform
         self.labtransform = labeltransform
+        assert convert_to in ['RGB', 'L']
+        self.convert_to = convert_to
         self.list = []
 
         for root, dirs, files in os.walk(image_path):
@@ -82,7 +89,7 @@ class lungSegmentDataset(Dataset):
         left_name = os.path.join(self.leftmask_path,self.list[idx])
         right_name = os.path.join(self.rightmask_path,self.list[idx])
 
-        img = Image.open(img_name)
+        img = Image.open(img_name).convert(self.convert_to)
         left = Image.open(left_name)
         right = Image.open(right_name)
 
@@ -101,3 +108,22 @@ class lungSegmentDataset(Dataset):
 
         return sample
 
+
+class LungSegmentTest(Dataset):
+    def __init__(self, image_path, imgtransform):
+        self.image_path = image_path
+        self.imgtransform = imgtransform
+        self.list = []
+        for root, dirs, files in os.walk(image_path):
+            for filename in files:
+                self.list.append(filename)
+
+    def __len__(self):
+        return len(self.list)
+
+    def __getitem__(self, idx):
+        img_name = os.path.join(self.image_path,self.list[idx])
+        img = Image.open(img_name)
+        if self.imgtransform:
+            img = self.imgtransform(img)
+        return {'image': img}

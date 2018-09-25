@@ -66,10 +66,7 @@ class UNet11(nn.Module):
         self.dec2 = DecoderBlock(num_filters * (4 + 2), num_filters * 2 * 2, num_filters)
         self.dec1 = ConvRelu(num_filters * (2 + 1), num_filters)
 
-        self.final = nn.Conv2d(num_filters, 1, kernel_size=1)
-        # Additions for classification task
-        self.final_pool = nn.AvgPool2d(7)
-        self.fc = nn.Linear(1024, 14)
+        self.final = nn.Conv2d(num_filters, 3, kernel_size=1)
 
     def forward(self, x):
         conv1 = self.relu(self.conv1(x))
@@ -90,10 +87,20 @@ class UNet11(nn.Module):
         dec1 = self.dec1(torch.cat([dec2, conv1], 1))
 
         final_conv = self.final(dec1)
-        # Additions for classification task
-        pooled = self.final_pool(final_conv)
-        return self.fc(pooled.view(pooled.size(0), -1))
+        return final_conv
 
+
+class UNet11Classifier(UNet11):
+    def __init__(self, num_filters=32, pretrained=False):
+        super(UNet11Classifier, self).__init__(num_filters=num_filters, pretrained=pretrained)
+        # Additions for classification task
+        self.final_pool = nn.AvgPool2d(7)
+        self.fc = nn.Linear(1024, 14)
+
+    def forward(self, x):
+        x = super(UNet11Classifier, self).forward(x)
+        pooled = self.final_pool(x)
+        return self.fc(pooled.view(pooled.size(0), -1))
 
 
 def unet11(pretrained=False, **kwargs):
