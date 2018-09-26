@@ -30,7 +30,7 @@ def main():
     transforms = Compose([Resize((224, 224)), ToTensor(), normalize])
     dataset = JSRTBSE(args.jsrt_path, args.bse_path, transforms, 'RGB')
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    model = unet16(pretrained=True, out_filters=1).cuda()
+    model = unet16(pretrained=True, out_filters=3).cuda()
     if args.resume_from:
         model.load_state_dict(torch.load(args.resume_from))
         init_epochs = int(os.path.basename(args.resume_from).replace('{}_bse_'.format(args.model), ''))

@@ -31,7 +31,7 @@ elif args.model == 'unet16':
     resize_dim = (224, 224)
     convert_to = 'RGB'
 
-dataset = iap.LungSegmentTest(
+dataset = iap.LungTest(
     args.img_path,
     Compose([Resize(resize_dim),ToTensor(),normalize]),
     convert_to=convert_to

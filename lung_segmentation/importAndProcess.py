@@ -109,7 +109,7 @@ class lungSegmentDataset(Dataset):
         return sample
 
 
-class LungSegmentTest(Dataset):
+class LungTest(Dataset):
     def __init__(self, image_path, imgtransform, convert_to):
         self.image_path = image_path
         self.imgtransform = imgtransform
@@ -135,12 +135,13 @@ class JSRTBSE(Dataset):
     # The JSRT Database but with bone shadows eliminated. Gordienko used
     # this to effect in his research, so it could make sense to utilize in
     # further research
-    def __init__(self, original_imgs_path, bse_imgs_path, imgtransform, convert_to):
+    def __init__(self, original_imgs_path, bse_imgs_path, imgtransform, convert_to, test=False):
         self.original_imgs_path = original_imgs_path
         self.bse_imgs_path = bse_imgs_path
         self.imgtransform = imgtransform
         self.convert_to = convert_to
         self.list = []
+        self.test = test
         for root, dirs, files in os.walk(original_imgs_path):
             for filename in files:
                 self.list.append(filename)
@@ -150,9 +151,12 @@ class JSRTBSE(Dataset):
 
     def __getitem__(self, idx):
         orig_img_path = os.path.join(self.original_imgs_path, self.list[idx])
-        bse_img_path = os.path.join(self.bse_imgs_path, self.list[idx].replace('.IMG', '.png'))
         arr = np.fromfile(orig_img_path, dtype='>i2').reshape((2048, 2048))
         orig_img = Image.fromarray((arr / arr.max()) * 255).convert(self.convert_to)
-        bse = np.array(Image.open(bse_img_path))
-        bse_img = Image.fromarray(((bse/bse.max()) * 255).astype('uint8'))
-        return self.imgtransform(orig_img), self.imgtransform(bse_img)
+        if not self.test:
+            bse_img_path = os.path.join(self.bse_imgs_path, self.list[idx].replace('.IMG', '.png'))
+            bse = np.array(Image.open(bse_img_path))
+            bse_img = Image.fromarray(((bse/bse.max()) * 255).astype('uint8')).convert(self.convert_to)
+            return self.imgtransform(orig_img), self.imgtransform(bse_img)
+        else:
+            return self.imgtransform(orig_img)
