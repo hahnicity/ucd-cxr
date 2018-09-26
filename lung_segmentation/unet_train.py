@@ -7,12 +7,13 @@ import importAndProcess as iap
 import torch
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
-from cxrlib.models.unet_models import unet11
+from cxrlib.models.unet_models import unet11, unet16
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('montgomery_path')
+    parser.add_argument('-m', '--model', choices=['unet11', 'unet16'], default='unet16')
     parser.add_argument('-r', '--resume-from', help='resume from a specific savepoint')
     parser.add_argument('-e', '--epochs', default=700, type=int)
     parser.add_argument('-b', '--batch-size', default=8, type=int)
@@ -30,11 +31,15 @@ def main():
     )
 
     dataloader = torch.utils.data.DataLoader(dataset,batch_size=args.batch_size, shuffle=True)
-    segNet = unet11(pretrained=True, out_filters=3).cuda()
+    if args.model == 'unet11':
+        segNet = unet11(pretrained=True, out_filters=3).cuda()
+    elif args.model == 'unet16':
+        segNet = unet16(pretrained=True, out_filters=3).cuda()
+
     segNet = torch.nn.DataParallel(segNet)
     if args.resume_from:
         segNet.load_state_dict(torch.load(args.resume_from))
-        init_epochs = int(os.path.basename(args.resume_from).replace('unet11_', ''))
+        init_epochs = int(os.path.basename(args.resume_from).replace('{}_'.format(args.model), ''))
     else:
         init_epochs = 0
     optimizer = Adam(segNet.parameters(), lr=0.0002)
@@ -55,7 +60,7 @@ def main():
             log.write(str(loss.cpu().detach().numpy().item()) + "\n")
 
         if((eps+1) % 50 == 0):
-            torch.save(segNet.state_dict(),"unet11_" + str(eps+1))
+            torch.save(segNet.state_dict(), "{}_{}".format(args.model, eps+1))
 
 if __name__ == '__main__':
     main()

@@ -110,9 +110,11 @@ class lungSegmentDataset(Dataset):
 
 
 class LungSegmentTest(Dataset):
-    def __init__(self, image_path, imgtransform):
+    def __init__(self, image_path, imgtransform, convert_to):
         self.image_path = image_path
         self.imgtransform = imgtransform
+        assert convert_to in ['RGB', 'L']
+        self.convert_to = convert_to
         self.list = []
         for root, dirs, files in os.walk(image_path):
             for filename in files:
@@ -123,7 +125,7 @@ class LungSegmentTest(Dataset):
 
     def __getitem__(self, idx):
         img_name = os.path.join(self.image_path,self.list[idx])
-        img = Image.open(img_name)
+        img = Image.open(img_name).convert(self.convert_to)
         if self.imgtransform:
             img = self.imgtransform(img)
         return {'image': img}

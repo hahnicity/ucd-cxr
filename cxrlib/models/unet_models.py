@@ -266,7 +266,7 @@ class UNet16(nn.Module):
         self.dec3 = DecoderBlockV2(256 + num_filters * 8, num_filters * 4 * 2, num_filters * 2, is_deconv)
         self.dec2 = DecoderBlockV2(128 + num_filters * 2, num_filters * 2 * 2, num_filters, is_deconv)
         self.dec1 = ConvRelu(64 + num_filters, num_filters)
-        self.final = nn.Conv2d(num_filters, num_classes, kernel_size=out_filters)
+        self.final = nn.Conv2d(num_filters, out_filters, kernel_size=1)
 
     def forward(self, x):
         conv1 = self.conv1(x)
