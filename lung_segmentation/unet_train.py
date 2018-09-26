@@ -30,7 +30,7 @@ def main():
     )
 
     dataloader = torch.utils.data.DataLoader(dataset,batch_size=args.batch_size, shuffle=True)
-    segNet = unet11(pretrained=True).cuda()
+    segNet = unet11(pretrained=True, out_filters=3).cuda()
     segNet = torch.nn.DataParallel(segNet)
     if args.resume_from:
         segNet.load_state_dict(torch.load(args.resume_from))

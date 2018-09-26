@@ -36,7 +36,7 @@ class DecoderBlock(nn.Module):
 
 
 class UNet11(nn.Module):
-    def __init__(self, num_filters=32, pretrained=False):
+    def __init__(self, num_filters=32, pretrained=False, out_filters=1):
         """
         :param num_classes:
         :param num_filters:
@@ -66,7 +66,7 @@ class UNet11(nn.Module):
         self.dec2 = DecoderBlock(num_filters * (4 + 2), num_filters * 2 * 2, num_filters)
         self.dec1 = ConvRelu(num_filters * (2 + 1), num_filters)
 
-        self.final = nn.Conv2d(num_filters, 3, kernel_size=1)
+        self.final = nn.Conv2d(num_filters, out_filters, kernel_size=1)
 
     def forward(self, x):
         conv1 = self.relu(self.conv1(x))
@@ -101,22 +101,6 @@ class UNet11Classifier(UNet11):
         x = super(UNet11Classifier, self).forward(x)
         pooled = self.final_pool(x)
         return self.fc(pooled.view(pooled.size(0), -1))
-
-
-def unet11(pretrained=False, **kwargs):
-    """
-    pretrained:
-            False - no pre-trained network is used
-            True  - encoder is pre-trained with VGG11
-            carvana - all weights are pre-trained on
-                Kaggle: Carvana dataset https://www.kaggle.com/c/carvana-image-masking-challenge
-    """
-    model = UNet11(pretrained=pretrained, **kwargs)
-
-    if pretrained == 'carvana':
-        state = torch.load('TernausNet.pt')
-        model.load_state_dict(state['model'])
-    return model
 
 
 class DecoderBlockV2(nn.Module):
@@ -224,7 +208,7 @@ class AlbuNet(nn.Module):
 
 
 class UNet16(nn.Module):
-    def __init__(self, num_classes=1, num_filters=32, pretrained=False, is_deconv=False):
+    def __init__(self, num_classes=1, num_filters=32, pretrained=False, is_deconv=False, out_filters=1):
         """
         :param num_classes:
         :param num_filters:
@@ -282,7 +266,7 @@ class UNet16(nn.Module):
         self.dec3 = DecoderBlockV2(256 + num_filters * 8, num_filters * 4 * 2, num_filters * 2, is_deconv)
         self.dec2 = DecoderBlockV2(128 + num_filters * 2, num_filters * 2 * 2, num_filters, is_deconv)
         self.dec1 = ConvRelu(64 + num_filters, num_filters)
-        self.final = nn.Conv2d(num_filters, num_classes, kernel_size=1)
+        self.final = nn.Conv2d(num_filters, num_classes, kernel_size=out_filters)
 
     def forward(self, x):
         conv1 = self.conv1(x)
@@ -306,3 +290,30 @@ class UNet16(nn.Module):
             x_out = self.final(dec1)
 
         return x_out
+
+
+def unet11(pretrained=False, **kwargs):
+    """
+    pretrained:
+            False - no pre-trained network is used
+            True  - encoder is pre-trained with VGG11
+            carvana - all weights are pre-trained on
+                Kaggle: Carvana dataset https://www.kaggle.com/c/carvana-image-masking-challenge
+    """
+    model = UNet11(pretrained=pretrained, **kwargs)
+
+    if pretrained == 'carvana':
+        state = torch.load('TernausNet.pt')
+        model.load_state_dict(state['model'])
+    return model
+
+
+def unet16(pretrained=False, **kwargs):
+    """
+    pretrained:
+            False - no pre-trained network is used
+            True  - encoder is pre-trained with VGG11
+            carvana - all weights are pre-trained on
+                Kaggle: Carvana dataset https://www.kaggle.com/c/carvana-image-masking-challenge
+    """
+    return UNet16(pretrained=pretrained, **kwargs)
