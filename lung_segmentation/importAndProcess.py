@@ -129,3 +129,30 @@ class LungSegmentTest(Dataset):
         if self.imgtransform:
             img = self.imgtransform(img)
         return {'image': img}
+
+
+class JSRTBSE(Dataset):
+    # The JSRT Database but with bone shadows eliminated. Gordienko used
+    # this to effect in his research, so it could make sense to utilize in
+    # further research
+    def __init__(self, original_imgs_path, bse_imgs_path, imgtransform, convert_to):
+        self.original_imgs_path = original_imgs_path
+        self.bse_imgs_path = bse_imgs_path
+        self.imgtransform = imgtransform
+        self.convert_to = convert_to
+        self.list = []
+        for root, dirs, files in os.walk(original_imgs_path):
+            for filename in files:
+                self.list.append(filename)
+
+    def __len__(self):
+        return len(self.list)
+
+    def __getitem__(self, idx):
+        orig_img_path = os.path.join(self.original_imgs_path, self.list[idx])
+        bse_img_path = os.path.join(self.bse_imgs_path, self.list[idx].replace('.IMG', '.png'))
+        arr = np.fromfile(orig_img_path, dtype='>i2').reshape((2048, 2048))
+        orig_img = Image.fromarray((arr / arr.max()) * 255).convert(self.convert_to)
+        bse = np.array(Image.open(bse_img_path))
+        bse_img = Image.fromarray(((bse/bse.max()) * 255).astype('uint8'))
+        return self.imgtransform(orig_img), self.imgtransform(bse_img)
