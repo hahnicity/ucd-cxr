@@ -24,7 +24,7 @@ from retinanet.transform import resize, random_flip, random_crop, center_crop
 
 
 class ListDataset(data.Dataset):
-    def __init__(self, root, list_file, train, transform, input_size, val=False, only_uni_or_bilateral=False, undersample=None):
+    def __init__(self, root, list_file, train, transform, input_size, val=False, only_uni_or_bilateral=False, undersample=None, preprocessed=False):
         '''
         Args:
           root: (str) ditectory to images.
@@ -35,6 +35,7 @@ class ListDataset(data.Dataset):
           val: (bool) is this a validation dataset?
           only_uni_or_bilateral: (bool) only get unilateral or bilaterial pneumonia
           undersample: (float) undersample normal obs to a ratio of abnormal. Set as None if undesired for use
+          preprocessed: (bool) is the dataset preprocessed in some way where the files are png?
         '''
         self.root = root
         self.train = train
@@ -45,6 +46,7 @@ class ListDataset(data.Dataset):
         self.fnames = []
         self.boxes = []
         self.labels = []
+        self.preprocessed = preprocessed
 
         self.encoder = DataEncoder()
 
@@ -112,24 +114,29 @@ class ListDataset(data.Dataset):
         # Load image and boxes.
         fname = self.fnames[idx]
         # This is a code modification for the RSNA dataset
-        img = pydicom.read_file(os.path.join(self.root, fname))
-        img = img.pixel_array
-        if len(img.shape) != 3 or image.shape[2] != 3:
-            img = np.stack((img,) * 3, -1)
-        img = Image.fromarray(img)
-        #img = Image.open(os.path.join(self.root, fname))
-        #if img.mode != 'RGB':
-        #    img = img.convert('RGB')
+        if self.preprocessed:
+            fname = fname.replace('.dcm', '.png')
+            img = Image.open(os.path.join(self.root, fname))
+            # resize back to normal dicom standard
+            img = transforms.Resize((1024, 1024))(img)
+        else:
+            img = pydicom.read_file(os.path.join(self.root, fname))
+            img = img.pixel_array
+            if len(img.shape) != 3 or image.shape[2] != 3:
+                img = np.stack((img,) * 3, -1)
+            img = Image.fromarray(img)
+
         if self.train or self.val:
             boxes = self.boxes[idx].clone()
             labels = self.labels[idx]
-            size = self.input_size
 
+        size = self.input_size
         # Data augmentation.
         if self.train:
-            img, boxes = random_flip(img, boxes)
-            img, boxes = random_crop(img, boxes)
+            #img, boxes = random_flip(img, boxes)
+            #img, boxes = random_crop(img, boxes)
             img, boxes = resize(img, boxes, (size,size))
+            #print(boxes)
             img = self.transform(img)
             return img, boxes, labels
         elif not self.train and not self.val:
@@ -175,28 +182,32 @@ class ListDataset(data.Dataset):
 
 def test():
     import torchvision
-
+    from encoder import DataEncoder
     cxr14_norms = [[0.5059, 0.5059, 0.5059], [0.0893, 0.0893, 0.0893]]
     imagenet_norms = [[0.485, 0.456, 0.406], [0.229, 0.224, 0.225]]
+
     transform = transforms.Compose([
         transforms.ToTensor(),
         #transforms.Normalize(cxr14_norms[0], cxr14_norms[1])
     ])
     dataset = ListDataset(
-        root='/fastdata/rsna-pneumonia/train/',
+        root='/fastdata/rsna-pneumonia/train_segmented',
         list_file='rsna-train.csv',
         train=True,
         transform=transform,
         input_size=224,
+        preprocessed=True
     )
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=False, num_workers=1, collate_fn=dataset.collate_fn)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=True, num_workers=1, collate_fn=dataset.collate_fn)
 
     for images, loc_targets, cls_targets in dataloader:
+        #import IPython; IPython.embed()
         print(images.size())
         print(loc_targets.size())
         print(cls_targets.size())
+        print((cls_targets > 0).any())
         grid = torchvision.utils.make_grid(images, 1)
         torchvision.utils.save_image(grid, 'a.jpg')
         break
 
-#test()
+test()

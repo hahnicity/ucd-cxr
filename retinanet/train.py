@@ -43,18 +43,29 @@ best_loss = float('inf')  # best test loss
 start_epoch = 0  # start from epoch 0 or last epoch
 
 # Data
+#
+# RSNA pneumonia norms are:
+#
+# means: [0.63016089, 0.63016089, 0.63016089]
+# stds: array([0.1932813, 0.1932813, 0.1932813])
 print('==> Preparing data..')
 transform = transforms.Compose([
     transforms.ToTensor(),
+    # XXX Does it make sense to use these normalization consts? They aren't made for
+    # cxrs
     transforms.Normalize((0.485,0.456,0.406), (0.229,0.224,0.225))
 ])
 
+if "segmented" in args.image_dir:
+    preprocessed = True
+else:
+    preprocessed = False
 trainset = ListDataset(root=args.image_dir,
-                       list_file=args.train_list, train=True, transform=transform, input_size=224, only_uni_or_bilateral=args.only_uni_or_bilateral, undersample=args.undersample)
+                       list_file=args.train_list, train=True, transform=transform, input_size=224, only_uni_or_bilateral=args.only_uni_or_bilateral, undersample=args.undersample, preprocessed=preprocessed)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=8, collate_fn=trainset.collate_fn)
 
 testset = ListDataset(root=args.image_dir,
-                      list_file=args.val_list, train=False, transform=transform, input_size=224, val=True)
+                      list_file=args.val_list, train=False, transform=transform, input_size=224, val=True, preprocessed=preprocessed)
 testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=8, collate_fn=testset.collate_fn)
 
 
@@ -105,7 +116,7 @@ class RunModel(object):
             self.optimizer.step()
 
             train_loss += loss
-            print('train_loss: %.3f | avg_loss: %.3f\r' % (loss.data[0], train_loss/(batch_idx+1)), end="")
+            print('train_loss: %.3f | avg_loss: %.3f' % (loss.data[0], train_loss/(batch_idx+1)))
 
     # Test
     def test(self, epoch):
@@ -128,7 +139,7 @@ class RunModel(object):
                 kaggle_div += tmp_div
                 loss = self.criterion(loc_preds, loc_targets, cls_preds, cls_targets)
                 test_loss += loss
-                print('test_loss: %.3f | avg_loss: %.3f\r' % (loss.data[0], test_loss/(batch_idx+1)), end="")
+                print('test_loss: %.3f | avg_loss: %.3f' % (loss.data[0], test_loss/(batch_idx+1)))
                 if perf_reasons is None:
                     perf_reasons = tmp_perf_reasons
                 else:
@@ -209,5 +220,5 @@ def focal_loss_run():
 
 
 #alternating_loss_run()
-focal_loss_run()
-#stat_loss_run()
+#focal_loss_run()
+stat_loss_run()
