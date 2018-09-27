@@ -13,7 +13,7 @@ from cxrlib.models.unet_models import unet11, unet16
 parser = argparse.ArgumentParser()
 parser.add_argument('img_path')
 parser.add_argument('-m', '--model', choices=['unet11', 'unet16', 'resnet'], default='unet16')
-parser.add_argument('-o', '--save-to-new-dir', default='images/')
+parser.add_argument('-o', '--save-to-new-dir', default='image/')
 parser.add_argument('-r', '--resume-from', help='resume from a specific savepoint', required=True)
 parser.add_argument('-t', '--input-type', choices=['dicom', 'png'], default='dicom')
 parser.add_argument('--non-montgomery', action='store_true', help='toggle this flag if you are working on a non-montgomery dataset')
@@ -58,7 +58,7 @@ with torch.no_grad():
         if not args.non_montgomery:
             show.ImageWithGround(i,True,True,save=True)
 
-        if args.save_to_new_dir:
+        if args.save_to_new_dir != 'images/':
             show.save_for_preprocessing(i, sample['filename'][0], mask.squeeze().cpu().numpy(), args.save_to_new_dir)
         else:
             show.ImageWithMask(i, sample['filename'][0], mask.squeeze().cpu().numpy(), True, True, save=True)

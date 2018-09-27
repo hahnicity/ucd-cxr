@@ -5,6 +5,12 @@ __pycache__/
 *.sw[op]
 nohup.out
 *.pt
+*.pth
+
+# image classes
+*.png
+*.jpg
+*.dcm
 
 # C extensions
 *.so

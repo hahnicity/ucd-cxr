@@ -44,7 +44,7 @@ def main():
     segNet = torch.nn.DataParallel(segNet)
     if args.resume_from:
         segNet.load_state_dict(torch.load(args.resume_from))
-        init_epochs = int(os.path.basename(args.resume_from).replace('{}_'.format(args.model), ''))
+        init_epochs = int(os.path.basename(args.resume_from).replace('{}_'.format(args.model), '').replace('.pt', ''))
     else:
         init_epochs = 0
     optimizer = Adam(segNet.parameters(), lr=0.0002)
@@ -65,7 +65,7 @@ def main():
             log.write(str(loss.cpu().detach().numpy().item()) + "\n")
 
         if((eps+1) % 50 == 0):
-            torch.save(segNet.state_dict(), "{}_{}".format(args.model, eps+1))
+            torch.save(segNet.state_dict(), "{}_{}.pt".format(args.model, eps+1))
 
 if __name__ == '__main__':
     main()

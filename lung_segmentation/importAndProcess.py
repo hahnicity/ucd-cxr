@@ -58,7 +58,7 @@ class visualize(object):
             rightforeground = np.stack((rightfilter,zerolayer,zerolayer),axis=-1)
             plt.imshow(rightforeground.astype('uint8'),alpha=0.3)
         if save:
-            plt.savefig('./image/' +  os.path.splitext(filename)[0] + '_mask.png')
+            plt.savefig('./image/' +  os.path.splitext(os.path.basename(filename))[0] + '_mask.png')
         else:
             plt.show()
 
@@ -68,7 +68,7 @@ class visualize(object):
         filter = (filter > 0).astype('uint8')
         filter = np.stack((filter, filter, filter))
         filtered = torch.Tensor(background * filter)
-        save_image(filtered, os.path.join(out_dir, "{}.png".format(os.path.splitext(filename)[0])))
+        save_image(filtered, os.path.join(out_dir, "{}.png".format(os.path.splitext(os.path.basename(filename))[0])))
 
 
 class lungSegmentDataset(Dataset):
