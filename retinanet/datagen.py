@@ -176,12 +176,19 @@ class ListDataset(data.Dataset):
 def test():
     import torchvision
 
+    cxr14_norms = [[0.5059, 0.5059, 0.5059], [0.0893, 0.0893, 0.0893]]
+    imagenet_norms = [[0.485, 0.456, 0.406], [0.229, 0.224, 0.225]]
     transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.485,0.456,0.406), (0.229,0.224,0.225))
+        #transforms.Normalize(cxr14_norms[0], cxr14_norms[1])
     ])
-    dataset = ListDataset(root='/mnt/hgfs/D/download/PASCAL_VOC/voc_all_images',
-                          list_file='./data/voc12_train.txt', train=True, transform=transform, input_size=600)
+    dataset = ListDataset(
+        root='/fastdata/rsna-pneumonia/train/',
+        list_file='rsna-train.csv',
+        train=True,
+        transform=transform,
+        input_size=224,
+    )
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=False, num_workers=1, collate_fn=dataset.collate_fn)
 
     for images, loc_targets, cls_targets in dataloader:
@@ -192,4 +199,4 @@ def test():
         torchvision.utils.save_image(grid, 'a.jpg')
         break
 
-# test()
+#test()

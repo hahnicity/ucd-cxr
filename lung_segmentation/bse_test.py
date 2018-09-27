@@ -19,9 +19,9 @@ args = parser.parse_args()
 normalize = Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 
 if args.model == 'unet11':
-    model = unet11(out_filters=1).cuda()
+    model = unet11(out_filters=3).cuda()
 elif args.model == 'unet16':
-    model = unet16(out_filters=1).cuda()
+    model = unet16(out_filters=3).cuda()
 
 dataset = iap.LungTest(
     args.img_path,

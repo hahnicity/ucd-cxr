@@ -1,11 +1,14 @@
-from torch.utils.data import Dataset
 import os
-import pandas as pd
-import numpy as np
-import torch
-import matplotlib.pyplot as plt
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from PIL import Image
+import pydicom
+import torch
+from torch.utils.data import Dataset
+from torchvision.utils import save_image
+
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -36,7 +39,7 @@ class visualize(object):
         else:
             plt.show()
 
-    def ImageWithMask(self, idx, mask, left=False, right=False, save=False):
+    def ImageWithMask(self, idx, filename, mask, left=False, right=False, save=False):
         background = np.asarray(self.sample[idx]['image'])
         plt.imshow(background[0].astype('float'),cmap='gray')
         filter = np.asarray(np.argmax(mask,axis=0))
@@ -55,9 +58,17 @@ class visualize(object):
             rightforeground = np.stack((rightfilter,zerolayer,zerolayer),axis=-1)
             plt.imshow(rightforeground.astype('uint8'),alpha=0.3)
         if save:
-            plt.savefig('./image/' +  str(idx)+'_mask')
+            plt.savefig('./image/' +  os.path.splitext(filename)[0] + '_mask.png')
         else:
             plt.show()
+
+    def save_for_preprocessing(self, idx, filename, mask, out_dir):
+        background = np.asarray(self.sample[idx]['image'])
+        filter = np.asarray(np.argmax(mask, axis=0))
+        filter = (filter > 0).astype('uint8')
+        filter = np.stack((filter, filter, filter))
+        filtered = torch.Tensor(background * filter)
+        save_image(filtered, os.path.join(out_dir, "{}.png".format(os.path.splitext(filename)[0])))
 
 
 class lungSegmentDataset(Dataset):
@@ -128,7 +139,27 @@ class LungTest(Dataset):
         img = Image.open(img_name).convert(self.convert_to)
         if self.imgtransform:
             img = self.imgtransform(img)
-        return {'image': img}
+        return {'image': img, 'filename': self.list[idx]}
+
+
+class DicomSegment(Dataset):
+    def __init__(self, image_dir, imgtransform, convert_to):
+        self.image_dir = image_dir
+        self.imgtransform = imgtransform
+        self.convert_to = convert_to
+        self.list = []
+        for root, dirs, files in os.walk(image_dir):
+            for filename in files:
+                self.list.append(filename)
+
+    def __len__(self):
+        return len(self.list)
+
+    def __getitem__(self, idx):
+        imgpath = os.path.join(self.image_dir, self.list[idx])
+        arr = pydicom.read_file(imgpath).pixel_array
+        img = Image.fromarray(arr).convert(self.convert_to)
+        return {'image': self.imgtransform(img), 'filename': self.list[idx]}
 
 
 class JSRTBSE(Dataset):

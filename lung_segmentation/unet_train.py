@@ -12,20 +12,25 @@ from cxrlib.models.unet_models import unet11, unet16
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('montgomery_path')
+    parser.add_argument('--montgomery-path', default='/fastdata/montgomery/MontgomerySet')
     parser.add_argument('-m', '--model', choices=['unet11', 'unet16'], default='unet16')
     parser.add_argument('-r', '--resume-from', help='resume from a specific savepoint')
     parser.add_argument('-e', '--epochs', default=700, type=int)
     parser.add_argument('-b', '--batch-size', default=8, type=int)
+    parser.add_argument('--no-normalize', action='store_true')
     args = parser.parse_args()
 
     log = open("log.txt","a")
     normalize = Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    if args.no_normalize:
+        imagetransform = Compose([Resize((224, 224)),ToTensor()])
+    else:
+        imagetransform = Compose([Resize((224, 224)),ToTensor(),normalize])
     dataset = iap.lungSegmentDataset(
         os.path.join(args.montgomery_path, "CXR_png"),
         os.path.join(args.montgomery_path, "ManualMask/leftMask/"),
         os.path.join(args.montgomery_path, "ManualMask/rightMask/"),
-        imagetransform=Compose([Resize((224, 224)),ToTensor(),normalize]),
+        imagetransform=imagetransform,
         labeltransform=Compose([Resize((224, 224)),ToTensor()]),
         convert_to='RGB',
     )
