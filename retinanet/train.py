@@ -34,7 +34,7 @@ parser.add_argument('-b', '--batch-size', default=16, type=int)
 parser.add_argument('--ask-to-save', action='store_true', help="ask to save a model after test results regardless of how high iou is")
 parser.add_argument('--test-output-file', default='testing-results.txt')
 parser.add_argument('--only-uni-or-bilateral', action='store_true', help='only train on unilateral or bilateral pneumonias')
-parser.add_argument('--save-on', choices=['iou', 'loss'], help='save model based on test performance on iou or loss')
+parser.add_argument('--save-on', choices=['iou', 'loss'], help='save model based on test performance on iou or loss', default='loss')
 parser.add_argument('-u', '--undersample', type=float, help='undersample majority class with this ratio to the minority class')
 args = parser.parse_args()
 
@@ -196,17 +196,10 @@ def stat_loss_run():
         runner.test(epoch)
 
 
-# XXX do we even know if this works or not?
-def alternating_loss_run():
+def basic_loss_run():
+    criterion = BasicLoss()
+    runner = RunModel(net, trainloader, testloader, optimizer, criterion)
     for epoch in range(start_epoch, start_epoch+args.epochs):
-        if isinstance(criterion, BasicLoss):
-            criterion = StatLoss()
-            trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=8, collate_fn=trainset.collate_fn, only_uni_or_bilateral=args.only_uni_or_bilateral)
-
-        else:
-            criterion = BasicLoss()
-            trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=8, collate_fn=trainset.collate_fn)
-
         train(epoch)
         test(epoch)
 
@@ -219,6 +212,6 @@ def focal_loss_run():
         runner.test(epoch)
 
 
-#alternating_loss_run()
 #focal_loss_run()
-stat_loss_run()
+#stat_loss_run()
+basic_loss_run()

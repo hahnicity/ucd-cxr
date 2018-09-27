@@ -101,12 +101,19 @@ class FocalLoss(nn.Module):
 
         num_pos = pos.sum().float()
 
-        print('loc_loss: {} | cls_loss: {}'.format(np.round(loc_loss.detach()/num_pos, 4), np.round(cls_loss.detach()/num_pos, 4)))
+        print('loc_loss: {:.4} | cls_loss: {:.4}'.format(np.round(loc_loss.detach()/num_pos, 4), np.round(cls_loss.detach()/num_pos, 4)))
 
         if num_pos != 0:
             loss = (loc_loss+cls_loss)/num_pos
         else:
             loss = loc_loss+cls_loss
+
+        # XXX debug
+        ll = np.asarray(loc_loss.detach().cpu().numpy()).reshape((1,))[0]
+        cl = np.asarray(cls_loss.detach().cpu().numpy()).reshape((1,))[0]
+        if ll is np.nan or cl is np.nan:
+            import IPython; IPython.embed()
+
         return loss
 
 

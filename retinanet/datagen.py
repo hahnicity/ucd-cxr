@@ -136,7 +136,6 @@ class ListDataset(data.Dataset):
             #img, boxes = random_flip(img, boxes)
             #img, boxes = random_crop(img, boxes)
             img, boxes = resize(img, boxes, (size,size))
-            #print(boxes)
             img = self.transform(img)
             return img, boxes, labels
         elif not self.train and not self.val:
@@ -174,6 +173,7 @@ class ListDataset(data.Dataset):
             loc_target, cls_target = self.encoder.encode(boxes[i], labels[i], input_size=(w,h))
             loc_targets.append(loc_target)
             cls_targets.append(cls_target)
+
         return inputs, torch.stack(loc_targets), torch.stack(cls_targets)
 
     def __len__(self):
@@ -198,10 +198,9 @@ def test():
         input_size=224,
         preprocessed=True
     )
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=True, num_workers=1, collate_fn=dataset.collate_fn)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=True, collate_fn=dataset.collate_fn)
 
     for images, loc_targets, cls_targets in dataloader:
-        #import IPython; IPython.embed()
         print(images.size())
         print(loc_targets.size())
         print(cls_targets.size())
@@ -210,4 +209,4 @@ def test():
         torchvision.utils.save_image(grid, 'a.jpg')
         break
 
-test()
+#test()
