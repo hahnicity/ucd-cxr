@@ -133,8 +133,8 @@ class ListDataset(data.Dataset):
         size = self.input_size
         # Data augmentation.
         if self.train:
-            #img, boxes = random_flip(img, boxes)
-            #img, boxes = random_crop(img, boxes)
+            img, boxes = random_flip(img, boxes)
+            img, boxes = random_crop(img, boxes)
             img, boxes = resize(img, boxes, (size,size))
             img = self.transform(img)
             return img, boxes, labels
