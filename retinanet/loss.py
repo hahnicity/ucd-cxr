@@ -103,10 +103,11 @@ class FocalLoss(nn.Module):
 
         print('loc_loss: {:.4} | cls_loss: {:.4}'.format(np.round(loc_loss.detach()/num_pos, 4), np.round(cls_loss.detach()/num_pos, 4)))
 
-        if num_pos != 0:
-            loss = (loc_loss+cls_loss)/num_pos
-        else:
-            loss = loc_loss+cls_loss
+        loss = (loc_loss+cls_loss)/num_pos
+        #if num_pos != 0:
+        #    loss = (loc_loss+cls_loss)/num_pos
+        #else:
+        #    loss = loc_loss+cls_loss
 
         # XXX debug
         ll = np.asarray(loc_loss.detach().cpu().numpy()).reshape((1,))[0]

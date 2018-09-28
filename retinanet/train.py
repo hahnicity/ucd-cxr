@@ -200,8 +200,8 @@ def basic_loss_run():
     criterion = BasicLoss()
     runner = RunModel(net, trainloader, testloader, optimizer, criterion)
     for epoch in range(start_epoch, start_epoch+args.epochs):
-        train(epoch)
-        test(epoch)
+        runner.train(epoch)
+        runner.test(epoch)
 
 
 def focal_loss_run():
@@ -212,6 +212,6 @@ def focal_loss_run():
         runner.test(epoch)
 
 
-#focal_loss_run()
+focal_loss_run()
 #stat_loss_run()
-basic_loss_run()
+#basic_loss_run()
